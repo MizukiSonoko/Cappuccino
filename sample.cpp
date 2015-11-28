@@ -13,8 +13,11 @@ int main(int argc, char *argv[]) {
 
 	Cappuccino::add_route("/gochiusa/<character_name>", [&](Cappuccino::Request* req) -> Cappuccino::Response{
 		auto response = Cappuccino::Response(req->protocol(), Cappuccino::Response::FILE);
-		Logger::i("params="+req->url_params()["character_name"]);
 		response.set_filename("chino.html");
+
+		response.add_replace_value("@name", "mizuki");
+		response.add_replace_value("@waiter", req->url_params()["character_name"]);
+
 		return response;
 	});
 

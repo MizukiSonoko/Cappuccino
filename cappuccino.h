@@ -165,8 +165,20 @@ namespace Cappuccino{
 		Response_Type response_type_;
 		int status_;
 
+		std::map<string,string> replace_values_;
 
 	  public:
+
+	  	string replace_all(string response) const{
+			for(auto value = replace_values_.begin(); value != replace_values_.end(); value++){
+			    std::string::size_type pos(response.find(value->first));
+			    while( pos != std::string::npos ){
+			        response.replace( pos, value->first.length(), value->second );
+			        pos = response.find( value->first, pos + value->second.length() );
+			    }
+			}
+	  		return response;
+	  	}
 
 		explicit Response(string protocol, Response_Type response_type):
 			content_type_("text/html"),
@@ -174,6 +186,10 @@ namespace Cappuccino{
 			response_type_(response_type),
 			status_(200)
 			{}
+
+		void add_replace_value(string key, string val){
+			replace_values_.insert( std::map<string, string>::value_type( key, val));
+		}
 
 		void set_status(int status){
 			status_ = status;
@@ -207,7 +223,6 @@ namespace Cappuccino{
 		void set_text(std::string text){
 			response_ = text;
 		}
-
 		string header() const{
 			return protocol_ + " " + std::to_string(status_) + " "+ status_str() +"\nContent-type: "+content_type_+"\n\n";
 		}
@@ -227,7 +242,8 @@ namespace Cappuccino{
 						response += buf;
 					}
 				}
-				return response;
+
+				return replace_all(response);
 			}else{
 				return header() + response_;
 			}
@@ -350,7 +366,6 @@ namespace Cappuccino{
 
 			    	for(auto v : val){
 			    		if(find(reg.begin(), reg.end(), v) != reg.end()){
-			    			Logger::i(v.substr(1,v.size()-1));
 			    			request->add_url_param( v.substr(1, v.size() - 2),inp.front());   
 			    		}else if(v != inp.front()){  			
 	    					correct = false;
