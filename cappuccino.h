@@ -60,6 +60,44 @@ namespace Cappuccino{
 	    return result;
 	}
 
+	int hex2int(char hex){
+		if(hex >= 'A' && hex <= 'F'){
+	        return hex - 'A' + 10;
+	    }else if(hex >= 'a' && hex <= 'f'){
+	        return hex - 'a' + 10;
+	    }else if(hex >= '0' && hex <= '9'){
+	        return hex - '0';
+	    }
+	    return -1;
+	}
+
+	char hex2char(char high,char low){
+	    char res = hex2int(high);
+	    res = res << 4;
+	    return res + hex2int(low);
+	}
+
+	string url_decode(string str){
+	    string res = "";
+	    char tmp;
+	    auto len = str.size();
+	    for(auto i = 0; i < len; i++){
+	        if(str[i] == '+'){
+	            res += ' ';
+	        }else if(str[i] == '%' && (i+2) < len){
+	            if((tmp = hex2char((char)str[i+1],(char)str[i+2])) != -1){
+	                i += 2;
+	                res += tmp;
+	            }else{
+	                res += '%';
+	            }
+	        }else{
+	            res += str[i];
+	        }
+	    }
+	    return res;
+	}
+
 	class Request{
   	  public:
 		enum Method{
@@ -141,7 +179,7 @@ namespace Cappuccino{
 					if(param_name_val.size() == 2){
 						name = param_name_val.front();
 						param_name_val.pop_front();
-						params_.insert( std::map< string, string>::value_type( name, param_name_val.front()));
+						params_.insert( std::map< string, string>::value_type( name, url_decode(param_name_val.front())));
 					}
 				}
 			}
@@ -366,7 +404,7 @@ namespace Cappuccino{
 
 			    	for(auto v : val){
 			    		if(find(reg.begin(), reg.end(), v) != reg.end()){
-			    			request->add_url_param( v.substr(1, v.size() - 2),inp.front());   
+			    			request->add_url_param( v.substr(1, v.size() - 2), url_decode(inp.front()));   
 			    		}else if(v != inp.front()){  			
 	    					correct = false;
 	    				}
