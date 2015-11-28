@@ -1,0 +1,26 @@
+body { 
+	background-color: #D7CCC8;
+}
+
+.quotes{
+	font-style: italic;
+}
+div.contents {
+	margin-top: 2%;
+	margin-left: 5%;
+}
+
+#wrapper {  
+	text-align: left;  
+	width: 100%;  
+	margin: 0 auto;  
+	padding: 0;  
+	background-color: #D7CCC8;
+}
+#header {  
+	height: 20%;  
+	margin: 0;  
+	padding: 3% 2% 2% 5%;
+	color: #ffffff;
+	background-color: #8D6E63;
+}  

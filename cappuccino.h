@@ -245,7 +245,7 @@ namespace Cappuccino{
 			response_type_(response_type),
 			status_(200)
 			{
-				add_replace_value("@public", static_directory_);
+				add_replace_value("@public", "/" + static_directory_);
 			}
 
 		void add_replace_value(string key, string val){
