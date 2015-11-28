@@ -40,6 +40,7 @@ namespace Cappuccino{
 	using string = std::string;
 
 	static string document_root_ = "";
+	static string static_directory_ = "public";
 
 	std::list<string> split(const string& str, const string& delim){
 
@@ -243,7 +244,9 @@ namespace Cappuccino{
 			protocol_(protocol),
 			response_type_(response_type),
 			status_(200)
-			{}
+			{
+				add_replace_value("@public", static_directory_);
+			}
 
 		void add_replace_value(string key, string val){
 			replace_values_.insert( std::map<string, string>::value_type( key, val));
@@ -290,17 +293,24 @@ namespace Cappuccino{
 				string response = header(); 
 
 				string file_path = document_root_;
-				file_path += "/"+ filename_;
+				file_path += "/" + filename_;
 
 				if ((file = open(file_path.c_str(), O_RDONLY)) < 0) {
-					Logger::e("No such file or directory \""+ file_path +"\"");
+					auto static_file_path = filename_.substr(1, filename_.size()-1);
+					if ((file = open(static_file_path.c_str(), O_RDONLY)) < 0) {
+						Logger::e("No such file or directory \""+ file_path +"\" and "+static_file_path+"\"\n");
+					}else{
+						char buf[BUF_SIZE] = "";
+						while (read(file, buf, sizeof(buf)) > 0) {
+							response += buf;
+						}						
+					}
 				}else {
 					char buf[BUF_SIZE] = "";
 					while (read(file, buf, sizeof(buf)) > 0) {
 						response += buf;
 					}
 				}
-
 				return replace_all(response);
 			}else{
 				return header() + response_;
@@ -329,8 +339,25 @@ namespace Cappuccino{
 	static int sockfd_ = 0;
 	static int sessionfd_ = 0;
 
+
+	static void add_route(string route, std::function<Response(Request*)> function){
+		routes_.insert( std::map<string,std::function<Response(Request*)>>::value_type(route, function));
+	}
+
 	static void document_root(string path){
 		document_root_ = path;
+	}
+
+	static void static_directory(string directory_name){
+		static_directory_ = directory_name;
+		add_route(
+			"/" + static_directory_ + "/css/<filename>", 
+			[&](Cappuccino::Request* req) -> Cappuccino::Response{
+				auto response = Cappuccino::Response(req->protocol(), Cappuccino::Response::FILE);
+				response.set_filename(req->url());
+				return response;
+			}
+		);
 	}
 
 	static void load_argument_value(int argc, char *argv[]){
@@ -420,7 +447,7 @@ namespace Cappuccino{
 			    	auto val = split(url->first, "/");
 			    	auto inp = split(request->url(), "/");
 
-			    	if(val.size() != inp.size()) break;
+			    	if(val.size() != inp.size()) continue;
 
 			    	for(auto v : val){
 			    		if(find(reg.begin(), reg.end(), v) != reg.end()){
@@ -506,9 +533,6 @@ namespace Cappuccino{
 		load_argument_value(argc, argv);
 		init_socket();
 		init_signal(SIGINT);
-	}	
-
-	static void add_route(string route, std::function<Response(Request*)> function){
-		routes_.insert( std::map<string,std::function<Response(Request*)>>::value_type(route, function));
 	}
+
 };

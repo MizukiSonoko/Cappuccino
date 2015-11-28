@@ -4,6 +4,7 @@ int main(int argc, char *argv[]) {
 	Cappuccino::Cappuccino(argc, argv);
 	
 	Cappuccino::document_root("html");
+	Cappuccino::static_directory("public");
 
 	Cappuccino::add_route("/", [&](Cappuccino::Request* req) -> Cappuccino::Response{
 		auto response = Cappuccino::Response(req->protocol(), Cappuccino::Response::FILE);
