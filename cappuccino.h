@@ -63,12 +63,12 @@ namespace Cappuccino{
 
 	string prevent_xss(string str){
 		// ToDo add more case.
-		std::list<std::pair<string, string>> replaces{
-			{"<","&lt;"},
-			{">","&gt;"},
-			{"&","&amp;"},
-			{"\"","&quot"},
-		};
+		std::list<std::pair<string, string>> replaces;
+		replaces.push_back( std::make_pair("<","&lt;"));
+		replaces.push_back( std::make_pair(">","&gt;"));
+		replaces.push_back( std::make_pair("&","&amp;"));
+		replaces.push_back( std::make_pair("\"","&quot"));
+		
 		while(!replaces.empty()){
 			std::string::size_type pos( str.find(replaces.front().first) );
 			while( pos != std::string::npos ){			
