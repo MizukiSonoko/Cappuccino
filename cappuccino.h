@@ -20,23 +20,19 @@ namespace Logger{
 
 	static bool debug_ = false;
 
-   	static auto d(string msg)
-   		-> void {
-   			if(debug_)
-		   		printf("%s\n",msg.c_str());
-   	}
-
-   	static auto i(string msg)
-   		-> void {
+   	static void d(string msg){
+		if(debug_)
 	   		printf("%s\n",msg.c_str());
    	}
 
-   	static auto e(string msg)
-   		-> void {
-	   		printf("\033[1;31m%s\033[0m\n",msg.c_str());
+   	static void i(string msg){
+   		printf("%s\n",msg.c_str());
+   	}
+
+   	static void e(string msg){
+   		printf("\033[1;31m%s\033[0m\n",msg.c_str());
    	}
 };
-
 
 namespace Cappuccino{
 	
@@ -163,10 +159,11 @@ namespace Cappuccino{
 	  public:
 
 		explicit Response(string protocol, Response_Type response_type):
+			content_type_("text/html"),
 			protocol_(protocol),
 			response_type_(response_type),
-			status_(200),
-			content_type_("text/html"){}
+			status_(200)
+			{}
 
 		void set_status(int status){
 			status_ = status;
@@ -374,7 +371,7 @@ namespace Cappuccino{
 
 			string response = process();
 			send(sessionfd_, response.c_str(), response.size(), 0);
-			
+
 			close(sessionfd_);
 		}
 	}
@@ -392,19 +389,4 @@ namespace Cappuccino{
 	static void add_route(string route, std::function<Response(Request*)> function){
 		routes_.insert( std::map<string,std::function<Response(Request*)>>::value_type(route, function));
 	}
-
 };
-
-
-int main(int argc, char *argv[]) {
-	Cappuccino::Cappuccino(argc, argv);
-	Cappuccino::document_root("html");
-	Cappuccino::add_route("/", [&](Cappuccino::Request* req) -> Cappuccino::Response{
-		Logger::d("Call function");
-		auto response = Cappuccino::Response(req->protocol(), Cappuccino::Response::FILE);
-		response.set_filename("index.html");
-		return response;
-	});
-	Cappuccino::run();
-
-}
