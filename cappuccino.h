@@ -428,7 +428,7 @@ namespace Cappuccino{
 		Request* request = new Request( string(method), string(url), string(protocol), string(req));
 		Logger::d("method:"+string(method)+" url:"+string(url));
 
-		std::regex re( R"(<\w+>)");
+		std::regex re( R"(<\\w+>)");
 	    std::smatch m;    
 	    std::list<string> reg;
 
