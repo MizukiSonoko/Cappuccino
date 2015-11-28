@@ -1,7 +1,7 @@
 # Cappuccino
 [![Build Status](https://travis-ci.org/MizukiSonoko/Cappuccino.svg?branch=master)](https://travis-ci.org/MizukiSonoko/Cappuccino)
 
-Tiny HTTP service library.
+Tiny HTTP server library.
 
 # Micro sample
 ```shell
@@ -10,6 +10,10 @@ $ cd Cappuccino
 $ make
 $ ./sample
 ```
+
+# Environments
+
+- clang version 3.4
 
 # Usage
 
