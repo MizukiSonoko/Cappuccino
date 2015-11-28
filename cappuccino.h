@@ -60,6 +60,25 @@ namespace Cappuccino{
 	    return result;
 	}
 
+	string prevent_xss(string str){
+		// ToDo add more case.
+		std::list<std::pair<string, string>> replaces{
+			{"<","&lt;"},
+			{">","&gt;"},
+			{"&","&amp;"},
+			{"\"","&quot"},
+		};
+		while(!replaces.empty()){
+			std::string::size_type pos( str.find(replaces.front().first) );
+			while( pos != std::string::npos ){			
+			    str.replace( pos, replaces.front().first.length(), replaces.front().second );
+			    pos = str.find( replaces.front().first, pos + replaces.front().second.length() );
+			}
+			replaces.pop_front();
+		}
+		return str;
+	}
+
 	int hex2int(char hex){
 		if(hex >= 'A' && hex <= 'F'){
 	        return hex - 'A' + 10;
@@ -95,7 +114,8 @@ namespace Cappuccino{
 	            res += str[i];
 	        }
 	    }
-	    return res;
+
+	    return prevent_xss(res);
 	}
 
 	class Request{
@@ -376,7 +396,7 @@ namespace Cappuccino{
 		}
 	}
 
-
+	// Todo more short
 	static Response create_response(char* method, char* url, char* protocol,char* req){
 		Request* request = new Request( string(method), string(url), string(protocol), string(req));
 		Logger::d("method:"+string(method)+" url:"+string(url));
@@ -389,7 +409,7 @@ namespace Cappuccino{
 		for(auto url = routes_.begin(); url != routes_.end(); url++){
 			correct = true;
 		    if(url->first.find("<", 0) != string::npos){
-
+		    	// ToDo split sub function.
 			    auto iter = url->first.cbegin();
 			    while ( std::regex_search( iter, url->first.cend(), m, re )){
 			        reg.push_back(m.str());
@@ -424,7 +444,6 @@ namespace Cappuccino{
 				}
 			}
 		}
-
 		Logger::d("not found!" + string(url));
 		Response response = NotFound(request->protocol());
 		Logger::d(response);
