@@ -11,6 +11,7 @@
 #include <functional>
 #include <map>
 #include <list>
+#include <regex>
 
 #define BUF_SIZE 1024
 
@@ -40,6 +41,25 @@ namespace Cappuccino{
 
 	static string document_root_ = "";
 
+	std::list<string> split(const string& str, const string& delim){
+
+		std::list<string> result;
+
+	    string::size_type pos = 0;
+
+	    while(pos != string::npos ){
+	        string::size_type p = str.find(delim, pos);
+	        if(p == string::npos){
+	            result.push_back(str.substr(pos));
+	            break;
+	        }else{
+	            result.push_back(str.substr(pos, p - pos));
+	        }
+	        pos = p + delim.size();
+	    }
+	    return result;
+	}
+
 	class Request{
   	  public:
 		enum Method{
@@ -54,28 +74,11 @@ namespace Cappuccino{
 	  private:
 		std::map<string,string> headers_;
 		std::map<string,string> params_;
+		std::map<string,string> url_params_;
+
 		string url_;
 		string protocol_;
-		Method method_;
-
-		std::list<string> split(const string& str, const string& delim){
-
-			std::list<string> result;
-
-		    string::size_type pos = 0;
-
-		    while(pos != string::npos ){
-		        string::size_type p = str.find(delim, pos);
-		        if(p == string::npos){
-		            result.push_back(str.substr(pos));
-		            break;
-		        }else{
-		            result.push_back(str.substr(pos, p - pos));
-		        }
-		        pos = p + delim.size();
-		    }
-		    return result;
-		}
+		Method method_;		
 
 		void set_method(string m){
 			if(m == "GET"){
@@ -109,6 +112,13 @@ namespace Cappuccino{
 		}
 		std::map<string,string> params() const{
 			return params_;
+		}
+		std::map<string,string> url_params() const{
+			return url_params_;
+		}
+
+		void add_url_param(string key, string val){			
+			url_params_.insert( std::map< string, string>::value_type( key, val));
 		}
 
 		Request(string method, string url, string protocol, string request){
@@ -234,8 +244,7 @@ namespace Cappuccino{
   		}
 	  	string content_type(){
 	  		return "html/text";
-	  	}
-	
+	  	}	
 	};
 
 
@@ -313,19 +322,60 @@ namespace Cappuccino{
 		}
 	}
 
-	static Response create_response(char* method,char* url,char* protocol,char* req){
+
+	static Response create_response(char* method, char* url, char* protocol,char* req){
 		Request* request = new Request( string(method), string(url), string(protocol), string(req));
 		Logger::d("method:"+string(method)+" url:"+string(url));
-		if (routes_.count(request->url()) != 0){
-			Response result = routes_[request->url()](request);
-			delete request;
-			return result;
-		}else{
-			Logger::d("not found!" + string(url));
-			Response response = NotFound(request->protocol());
-			Logger::d(response);
-			return response;
+
+		std::regex re( R"(<\w+>)");
+	    std::smatch m;    
+	    std::list<string> reg;
+
+	    bool correct = true;
+		for(auto url = routes_.begin(); url != routes_.end(); url++){
+			correct = true;
+		    if(url->first.find("<", 0) != string::npos){
+
+			    auto iter = url->first.cbegin();
+			    while ( std::regex_search( iter, url->first.cend(), m, re )){
+			        reg.push_back(m.str());
+			        iter = m[0].second;
+			    }
+
+			    if(reg.size() != 0){
+			    	auto val = split(url->first, "/");
+			    	auto inp = split(request->url(), "/");
+
+			    	if(val.size() != inp.size()) break;
+
+			    	for(auto v : val){
+			    		if(find(reg.begin(), reg.end(), v) != reg.end()){
+			    			Logger::i(v.substr(1,v.size()-1));
+			    			request->add_url_param( v.substr(1, v.size() - 2),inp.front());   
+			    		}else if(v != inp.front()){  			
+	    					correct = false;
+	    				}
+			    		inp.pop_front();
+			    	}
+			    }
+			    if(correct){
+					Response result = url->second(request);
+					delete request;
+					return result;			    	
+			    }
+			}else{
+				if(url->first == request->url()){
+					Response result = routes_[request->url()](request);
+					delete request;
+					return result;
+				}
+			}
 		}
+
+		Logger::d("not found!" + string(url));
+		Response response = NotFound(request->protocol());
+		Logger::d(response);
+		return response;
 	}
 
 	static string process(){
@@ -365,7 +415,7 @@ namespace Cappuccino{
 			memset( &client, 0, sizeof(client));
 			int len = sizeof(client);
 			if ((sessionfd_ = accept(sockfd_, (struct sockaddr *) &client,(socklen_t *) &len)) < 0) {
-				perror("accept");
+				Logger::e("accept error");
 				exit(EXIT_FAILURE);
 			}
 
