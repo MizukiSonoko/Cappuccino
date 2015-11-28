@@ -20,4 +20,5 @@ int main(int argc, char *argv[]) {
 
 	Cappuccino::run();
 
+	return 0;
 }
