@@ -1,5 +1,5 @@
 CC=clang++
-CFLAG=-std=c++0x -Wall -Ofast
+CFLAG=-std=c++0x -Wall -O3
 LIBDIR=lib
 LIB=-l./$(LIBDIR)/cappuccino.so
 all: sample

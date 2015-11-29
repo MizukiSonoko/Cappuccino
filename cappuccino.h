@@ -5,6 +5,8 @@
 #include <signal.h>
 #include <netinet/in.h>
 #include <sys/socket.h>
+#include <sys/types.h> 
+#include <sys/wait.h>
 #include <fcntl.h>
 #include <errno.h>
 #include <string>
