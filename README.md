@@ -3,6 +3,8 @@
 
 Tiny HTTP server library.
 
+[Demo web page](http://cappuccino.mizuki.io/)
+
 # Micro sample
 ```shell
 $ git clone https://github.com/MizukiSonoko/Cappuccino.git
