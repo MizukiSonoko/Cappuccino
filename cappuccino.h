@@ -13,7 +13,8 @@
 #include <list>
 #include <regex>
 
-#define BUF_SIZE 1024
+#define BUF_SIZE 4096
+#define MAX_LISTEN 128
 
 namespace Logger{
 
@@ -31,7 +32,7 @@ namespace Logger{
    	}
 
    	static void e(string msg){
-   		printf("\033[1;31m%s\033[0m\n",msg.c_str());
+   		fprintf(stderr,"\033[1;31m%s\033[0m\n",msg.c_str());
    	}
 };
 
@@ -338,7 +339,7 @@ namespace Cappuccino{
 	static bool debug_ = false;
 	static int sockfd_ = 0;
 	static int sessionfd_ = 0;
-
+    fd_set mask1fds, mask2fds;
 
 	static void add_route(string route, std::function<Response(Request*)> function){
 		routes_.insert( std::map<string,std::function<Response(Request*)>>::value_type(route, function));
@@ -382,30 +383,40 @@ namespace Cappuccino{
 	}
 
 	static void init_socket(){
-		struct sockaddr_in server;
 
-		if ((sockfd_ = socket(PF_INET, SOCK_STREAM, 0)) < 0) {
+	    struct sockaddr_in server;
+
+		if ((sockfd_ = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
 			Logger::e("socket create error");
 			exit(EXIT_FAILURE);
 		}
-		
 		memset( &server, 0, sizeof(server));
 		server.sin_family = AF_INET;	
 		server.sin_addr.s_addr = INADDR_ANY;
 		server.sin_port = htons(port_);
-		
+
 		char opt = 1;
 		setsockopt(sockfd_, SOL_SOCKET, SO_REUSEADDR, (char *)&opt, sizeof(opt));
 
+		/* Debug !!! */
+		int temp = 1;
+  		if(setsockopt(sockfd_, SOL_SOCKET, SO_REUSEADDR,
+	            &temp, sizeof(temp))){
+		    Logger::e("setsockopt() failed");
+		}
+		
 		if (bind(sockfd_, (struct sockaddr *) &server, sizeof(server)) < 0) {
 			Logger::e("socket bind error");
 			exit(EXIT_FAILURE);
 		}
-		
-		if (listen(sockfd_, SOMAXCONN) < 0) {
+
+		if(listen(sockfd_,  MAX_LISTEN) < 0) {
 			Logger::e("listen error");
 			exit(EXIT_FAILURE);
 		}
+
+	    FD_ZERO(&mask1fds);
+	    FD_SET(sockfd_, &mask1fds);
 	}
 
 	static void signal_handler(int SignalName){
@@ -416,8 +427,17 @@ namespace Cappuccino{
 		return;
 	}
 
-	static void init_signal(int signame){
-		if (signal(signame, Cappuccino::signal_handler) == SIG_ERR) {
+	static void signal_handler_chld(int SignalName){
+		while(waitpid(-1,NULL,WNOHANG)>0){}
+        signal(SIGCHLD, Cappuccino::signal_handler_chld);
+	}
+
+	static void init_signal(){
+		if (signal(SIGINT, Cappuccino::signal_handler) == SIG_ERR) {
+			Logger::e("signal setting error");
+			exit(1);
+		}
+		if (signal(SIGCHLD, Cappuccino::signal_handler_chld) == SIG_ERR) {
 			Logger::e("signal setting error");
 			exit(1);
 		}
@@ -477,13 +497,14 @@ namespace Cappuccino{
 		return response;
 	}
 
-	static string process(){
+	static string receive_process(int sessionfd){
+		Logger::d("receive_process");
 		char buf[BUF_SIZE] = {};
 		char method[BUF_SIZE] = {};
 		char url[BUF_SIZE] = {};
 		char protocol[BUF_SIZE] = {};
 
-		if (recv(sessionfd_, buf, sizeof(buf), 0) < 0) {
+		if (recv(sessionfd, buf, sizeof(buf), 0) < 0) {
 			Logger::e("receive error!");
 			exit(EXIT_FAILURE);
 		}
@@ -500,29 +521,68 @@ namespace Cappuccino{
 			if (strlen(buf) >= sizeof(buf)) {
 				memset(&buf, 0, sizeof(buf));
 			}
-		} while (recv(sessionfd_, buf+strlen(buf), sizeof(buf) - strlen(buf), 0) > 0);
+		} while (read(sessionfd, buf+strlen(buf), sizeof(buf) - strlen(buf)) > 0);
 
 		Logger::i(url);
 		return create_response( method, url, protocol, buf);
 	}
 	
+	time_t client_info[FD_SETSIZE];
+
 	static void run(){
 		Logger::i(" * Running on http://localhost:" + std::to_string(port_) + "/");
-		while (1) {
-			struct sockaddr_in client;
 
-			memset( &client, 0, sizeof(client));
-			int len = sizeof(client);
-			if ((sessionfd_ = accept(sockfd_, (struct sockaddr *) &client,(socklen_t *) &len)) < 0) {
-				Logger::e("accept error");
-				exit(EXIT_FAILURE);
-			}
+	    int cd[FD_SETSIZE];
+		struct sockaddr_in client;	    	
 
-			string response = process();
-			send(sessionfd_, response.c_str(), response.size(), 0);
+	    for(int i = 0;i < FD_SETSIZE; i++){
+	        cd[i] = 0;
+	    }
 
-			close(sessionfd_);
-		}
+	    while(1) {
+
+	        int    fd;
+	        struct timeval tv;
+	        tv.tv_sec = 0;
+	        tv.tv_usec = 0;
+
+	        memcpy(&mask2fds, &mask1fds, sizeof(mask1fds));
+
+	        int select_result = select(FD_SETSIZE, &mask2fds, (fd_set *)0, (fd_set *)0, &tv);
+	        if(select_result < 1) {
+	            for(fd = 0; fd < FD_SETSIZE; fd++) {
+	                if(cd[fd] == 1) {
+	                    close(fd);
+	                    FD_CLR(fd, &mask1fds);
+	                    cd[fd] = 0;
+	                }
+	            }
+	            continue;
+	        }
+	        for(fd = 0; fd < FD_SETSIZE; fd++) {
+	            if(FD_ISSET(fd,&mask2fds)) {
+	                if(fd == sockfd_) {
+	                	memset( &client, 0, sizeof(client));
+						int len = sizeof(client);
+	                    int clientfd = accept(sockfd_, 
+	                        (struct sockaddr *)&client,(socklen_t *) &len);
+	                        FD_SET(clientfd, &mask1fds);
+	                }else {
+	                    if(cd[fd] == 1) {
+	                        close(fd);
+	                        FD_CLR(fd, &mask1fds);
+	                        cd[fd] = 0;
+	                    } else {
+
+							string response = receive_process(fd);
+							write(fd, response.c_str(), response.size());      
+	
+	                        cd[fd] = 1;
+	                    }
+	                }
+	            }
+	        }
+	    }
 	}
 
 	static void Cappuccino(int argc, char *argv[]) {
@@ -532,7 +592,7 @@ namespace Cappuccino{
 
 		load_argument_value(argc, argv);
 		init_socket();
-		init_signal(SIGINT);
+		init_signal();
 	}
 
 };
