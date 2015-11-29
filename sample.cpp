@@ -32,7 +32,7 @@ int main(int argc, char *argv[]) {
 		if(req->method() == Cappuccino::Request::POST){
 			auto response = Cappuccino::Response(req->protocol(), Cappuccino::Response::FILE);
 			response.set_filename("cocoa.html");
-			response.add_replace_value("@order", req->params()["order"]);
+			response.add_replace_value("@order", req->get_param("order"));
 			return response;
 		}else{
 			auto response = Cappuccino::Response(req->protocol(), Cappuccino::Response::FILE);

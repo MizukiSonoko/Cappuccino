@@ -171,12 +171,36 @@ namespace Cappuccino{
 		}
 		std::map<string,string> headers() const{
 			return headers_;
-		}
+		}		
 		std::map<string,string> params() const{
 			return params_;
 		}
 		std::map<string,string> url_params() const{
 			return url_params_;
+		}
+
+		string get_url_param(string key) const{
+			auto pos(url_params_.find(key));
+			if( pos != headers_.end() ){
+				return pos->second;
+			}
+			return "Invalid param name";
+		}
+
+		string get_header_param(string key) const{
+			auto pos(headers_.find(key));
+			if( pos != headers_.end() ){
+				return pos->second;
+			}
+			return "Invalid param name";
+		}
+
+		string get_param(string key) const{
+			auto pos(params_.find(key));
+			if( pos != headers_.end() ){
+				return pos->second;
+			}
+			return "Invalid param name";
 		}
 
 		void add_url_param(string key, string val){			

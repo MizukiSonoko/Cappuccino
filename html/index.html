@@ -2,15 +2,88 @@
 <head>
 	<title>Cappuccino</title>		
 	<link rel="stylesheet" href="@public/css/sample.css" type="text/css">
+	<script type="text/javascript" src="https://google-code-prettify.googlecode.com/svn/loader/run_prettify.js"></script>
 </head>
 <body background="#D7CCC8">
-	<div id="wrapper">  
-		<div id="header">
-			<h1>Hello, cappuccino.</h1>
-		</div>
-		<div class="contents">	
-			<p class="cappuccino">Cappuccino is simple.</p>
-		</div>
+	<div id="header">
+		<h1>Hello, cappuccino.</h1>
+		<iframe src="http://ghbtns.com/github-btn.html?user=MizukiSonoko&repo=Cappuccino&type=fork&count=true"
+  allowtransparency="true" frameborder="0" scrolling="0" width="95" height="20"></iframe>
+		<iframe src="http://ghbtns.com/github-btn.html?user=MizukiSonoko&repo=Cappuccino&type=watch&count=true"
+		allowtransparency="true" frameborder="0" scrolling="0" width="110" height="20"></iframe>
+	</div>
+	<div class="contents">	
+		<h2>A Minimal Application</h2>
+		A minimal Cappuccino looks something like this:
+	    <pre class="prettyprint lang-cpp">
+#include "cappuccino.h"
+
+int main(int argc, char *argv[]) {
+	Cappuccino::Cappuccino(argc, argv);
+
+	Cappuccino::add_route("/", [&](Cappuccino::Request* req) -> Cappuccino::Response{
+		auto response = Cappuccino::Response(req->protocol(), Cappuccino::Response::TEXT);
+		response.set_text("Hello world");
+		return response;
+	});
+	return 0;
+}
+		</pre>
+		<br/>
+		<h2>Compile, Run</h2>
+		<hr>
+	    <pre class="prettyprint lang-cpp">
+$ clang++ -std=c++0x app.cpp -o app
+$ ./app
+ * Running on http://localhost:1204/
+	    </pre>
+		<br/>
+		<br/>
+		<h2>Render html file</h2>
+		<hr>
+	    <pre class="prettyprint lang-cpp">
+#include "cappuccino.h"
+
+int main(int argc, char *argv[]) {
+	Cappuccino::Cappuccino(argc, argv);
+
+	Cappuccino::add_route("/", [&](Cappuccino::Request* req) -> Cappuccino::Response{
+		auto response = Cappuccino::Response(req->protocol(), Cappuccino::Response::TEXT);
+		response.set_text("Hello world");
+		return response;
+	});
+	return 0;
+}		
+		</pre>
+		<br/>
+		<br/>
+		<h2>HTTP Methods</h2>
+		<hr>
+	    <pre class="prettyprint lang-cpp">		
+#include "cappuccino.h"
+
+int main(int argc, char *argv[]) {
+	Cappuccino::Cappuccino(argc, argv);
+	
+	Cappuccino::document_root("html");
+	Cappuccino::static_directory("public");
+
+	Cappuccino::add_route("/cocoa", [&](Cappuccino::Request* req) -> Cappuccino::Response{
+		if(req->method() == Cappuccino::Request::POST){
+			auto response = Cappuccino::Response(req->protocol(), Cappuccino::Response::FILE);
+			response.set_filename("cocoa.html");
+			response.add_replace_value("@order", req->get_param("order"));
+			return response;
+		}else{
+			auto response = Cappuccino::Response(req->protocol(), Cappuccino::Response::FILE);
+			response.set_filename("cocoa.html");
+			response.add_replace_value("@order", "うさぎ");
+			return response;		
+		}
+	});
+	return 0;
+}
+	    </pre>
 	</div>
 </body>
 </html>
