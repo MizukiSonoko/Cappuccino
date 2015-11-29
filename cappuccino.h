@@ -64,7 +64,7 @@ namespace Cappuccino{
 	    return result;
 	}
 
-	string prevent_xss(string str){
+	void prevent_xss(string* str){
 		// ToDo add more case.
 		std::list<std::pair<string, string>> replaces;
 		replaces.push_back( std::make_pair("<","&lt;"));
@@ -73,14 +73,13 @@ namespace Cappuccino{
 		replaces.push_back( std::make_pair("\"","&quot"));
 		
 		while(!replaces.empty()){
-			std::string::size_type pos( str.find(replaces.front().first) );
+			std::string::size_type pos( str->find(replaces.front().first) );
 			while( pos != std::string::npos ){			
-			    str.replace( pos, replaces.front().first.length(), replaces.front().second );
-			    pos = str.find( replaces.front().first, pos + replaces.front().second.length() );
+			    str->replace( pos, replaces.front().first.length(), replaces.front().second );
+			    pos = str->find( replaces.front().first, pos + replaces.front().second.length() );
 			}
 			replaces.pop_front();
 		}
-		return str;
 	}
 
 	int hex2int(char hex){
@@ -100,7 +99,7 @@ namespace Cappuccino{
 	    return res + hex2int(low);
 	}
 
-	string url_decode(string str){
+	string url_decode(const string& str){
 	    string res = "";
 	    char tmp;
 	    auto len = str.size();
@@ -118,8 +117,8 @@ namespace Cappuccino{
 	            res += str[i];
 	        }
 	    }
-
-	    return prevent_xss(res);
+		prevent_xss(&res);
+	    return res;
 	}
 
 	class Request{
@@ -142,7 +141,7 @@ namespace Cappuccino{
 		string protocol_;
 		Method method_;		
 
-		void set_method(string m){
+		void set_method(const string& m){
 			if(m == "GET"){
 				method_ = GET;
 			}else if(m == "POST"){
@@ -179,7 +178,7 @@ namespace Cappuccino{
 			return url_params_;
 		}
 
-		string get_url_param(string key) const{
+		string get_url_param(const string& key) const{
 			auto pos(url_params_.find(key));
 			if( pos != headers_.end() ){
 				return pos->second;
@@ -187,7 +186,7 @@ namespace Cappuccino{
 			return "Invalid param name";
 		}
 
-		string get_header_param(string key) const{
+		string get_header_param(const string& key) const{
 			auto pos(headers_.find(key));
 			if( pos != headers_.end() ){
 				return pos->second;
@@ -195,7 +194,7 @@ namespace Cappuccino{
 			return "Invalid param name";
 		}
 
-		string get_param(string key) const{
+		string get_param(const string& key) const{
 			auto pos(params_.find(key));
 			if( pos != headers_.end() ){
 				return pos->second;
@@ -203,11 +202,11 @@ namespace Cappuccino{
 			return "Invalid param name";
 		}
 
-		void add_url_param(string key, string val){			
+		void add_url_param(const string& key,const string& val){			
 			url_params_.insert( std::map< string, string>::value_type( key, val));
 		}
 
-		Request(string method, string url, string protocol, string request){
+		Request(const string& method,const string& url,const string& protocol,const string& request){
 			set_method(method);
 			url_ = url;
 			protocol_ = protocol;
@@ -255,18 +254,17 @@ namespace Cappuccino{
 
 	  public:
 
-	  	string replace_all(string response) const{
+	  	void replace_all(string* response) const{
 			for(auto value = replace_values_.begin(); value != replace_values_.end(); value++){
-			    std::string::size_type pos(response.find(value->first));
+			    std::string::size_type pos(response->find(value->first));
 			    while( pos != std::string::npos ){
-			        response.replace( pos, value->first.length(), value->second );
-			        pos = response.find( value->first, pos + value->second.length() );
+			        response->replace( pos, value->first.length(), value->second );
+			        pos = response->find( value->first, pos + value->second.length() );
 			    }
 			}
-	  		return response;
 	  	}
 
-		explicit Response(string protocol, Response_Type response_type):
+		explicit Response(const string& protocol,const Response_Type& response_type):
 			content_type_("text/html"),
 			protocol_(protocol),
 			response_type_(response_type),
@@ -296,7 +294,7 @@ namespace Cappuccino{
 				default: return "OK";
 			}
 		}
-		void set_content_type(string content_type){
+		void set_content_type(const string& content_type){
 			content_type_ = content_type;
 		}
 
@@ -304,11 +302,11 @@ namespace Cappuccino{
 			return content_type_;
 		}
 
-		void set_filename(std::string filename){
+		void set_filename(const std::string& filename){
 			filename_ = filename;
 		}
 
-		void set_text(std::string text){
+		void set_text(const std::string& text){
 			response_ = text;
 		}
 		string header() const{
@@ -338,7 +336,8 @@ namespace Cappuccino{
 					}	
 					close(file);
 				}
-				return replace_all(response);
+				replace_all(&response);
+				return response;
 			}else{
 				return header() + response_;
 			}
@@ -367,15 +366,15 @@ namespace Cappuccino{
 	static int sessionfd_ = 0;
     fd_set mask1fds, mask2fds;
 
-	static void add_route(string route, std::function<Response(Request*)> function){
+	static void add_route(const string& route,const std::function<Response(Request*)>& function){
 		routes_.insert( std::map<string,std::function<Response(Request*)>>::value_type(route, function));
 	}
 
-	static void document_root(string path){
+	static void document_root(const string& path){
 		document_root_ = path;
 	}
 
-	static void static_directory(string directory_name){
+	static void static_directory(const string& directory_name){
 		static_directory_ = directory_name;
 		add_route(
 			"/" + static_directory_ + "/css/<filename>", 
@@ -405,7 +404,7 @@ namespace Cappuccino{
 		}else{			
 			Logger::d("mode: product");
 		}
-		Logger::d("port:" +  std::to_string(port_));
+		Logger::d("port:" + std::to_string(port_));
 	}
 
 	static void init_socket(){
@@ -469,17 +468,17 @@ namespace Cappuccino{
 		}
 	}
 
-	// Todo more short
+
+	std::regex re( R"(<\w+>)");
+    std::smatch m;    
+	// Todo more short	
 	static Response create_response(char* method, char* url, char* protocol,char* req){
 		Request* request = new Request( string(method), string(url), string(protocol), string(req));
-		Logger::d("method:"+string(method)+" url:"+string(url));
-
-		std::regex re( R"(<\w+>)");
-	    std::smatch m;    
+		
 	    std::list<string> reg;
 
 	    bool correct = true;
-		for(auto url = routes_.begin(); url != routes_.end(); url++){
+		for(auto url = routes_.begin(), end = routes_.end(); url != end; ++url){
 			correct = true;
 		    if(url->first.find("<", 0) != string::npos){
 		    	// ToDo split sub function.
@@ -517,7 +516,6 @@ namespace Cappuccino{
 				}
 			}
 		}
-		Logger::d("not found!" + string(url));
 		Response response = NotFound(request->protocol());
 		Logger::d(response);
 		return response;
@@ -547,7 +545,6 @@ namespace Cappuccino{
 				memset(&buf, 0, sizeof(buf));
 			}
 		} while (read(sessionfd, buf+strlen(buf), sizeof(buf) - strlen(buf)) > 0);
-
 		Logger::d(url);
 		return create_response( method, url, protocol, buf);
 	}
