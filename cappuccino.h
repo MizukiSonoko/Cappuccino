@@ -289,28 +289,28 @@ namespace Cappuccino{
 			return protocol_ + " " + std::to_string(status_) + " "+ status_str() +"\nContent-type: "+content_type_+"\n\n";
 		}
 		operator string() const{
-			int file;
+			int file;			
+			char buf[BUF_SIZE] = {};
 			if(response_type_ == FILE){
 				string response = header(); 
 
-				string file_path = document_root_;
-				file_path += "/" + filename_;
+				string file_path = document_root_ + "/" + filename_;
 
 				if ((file = open(file_path.c_str(), O_RDONLY)) < 0) {
 					auto static_file_path = filename_.substr(1, filename_.size()-1);
 					if ((file = open(static_file_path.c_str(), O_RDONLY)) < 0) {
 						Logger::e("No such file or directory \""+ file_path +"\" and "+static_file_path+"\"\n");
 					}else{
-						char buf[BUF_SIZE] = "";
 						while (read(file, buf, sizeof(buf)) > 0) {
 							response += buf;
-						}						
+						}
+						close(file);	
 					}
 				}else {
-					char buf[BUF_SIZE] = "";
 					while (read(file, buf, sizeof(buf)) > 0) {
 						response += buf;
-					}
+					}	
+					close(file);
 				}
 				return replace_all(response);
 			}else{
@@ -509,7 +509,6 @@ namespace Cappuccino{
 			exit(EXIT_FAILURE);
 		}
 		sscanf(buf, "%s %s %s", method, url, protocol);
-
 		bool isbody = false;
 		do {
 			if (!isbody && strstr(buf, "\r\n")) {
@@ -523,7 +522,7 @@ namespace Cappuccino{
 			}
 		} while (read(sessionfd, buf+strlen(buf), sizeof(buf) - strlen(buf)) > 0);
 
-		Logger::i(url);
+		Logger::d(url);
 		return create_response( method, url, protocol, buf);
 	}
 	
