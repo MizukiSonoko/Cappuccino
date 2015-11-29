@@ -22,9 +22,32 @@ int main(int argc, char *argv[]) {
 		return response;
 	});
 
+	Cappuccino::add_route("/hello", [&](Cappuccino::Request* req) -> Cappuccino::Response{
+		auto response = Cappuccino::Response(req->protocol(), Cappuccino::Response::TEXT);
+		response.set_text("Hello world");
+		return response;
+	});
+
+	Cappuccino::add_route("/cocoa", [&](Cappuccino::Request* req) -> Cappuccino::Response{
+		if(req->method() == Cappuccino::Request::POST){
+			auto response = Cappuccino::Response(req->protocol(), Cappuccino::Response::FILE);
+			response.set_filename("cocoa.html");
+			response.add_replace_value("@order", req->params()["order"]);
+			return response;
+		}else{
+			auto response = Cappuccino::Response(req->protocol(), Cappuccino::Response::FILE);
+			response.set_filename("cocoa.html");
+			response.add_replace_value("@order", "うさぎ");
+			return response;		
+		}
+	});
+
 	Cappuccino::add_route("/chino", [&](Cappuccino::Request* req) -> Cappuccino::Response{
 		auto response = Cappuccino::Response(req->protocol(), Cappuccino::Response::FILE);
 		response.set_filename("chino.html");
+
+		response.add_replace_value("@name", "mizuki");
+		response.add_replace_value("@waiter", "香風智乃");
 		return response;
 	});
 

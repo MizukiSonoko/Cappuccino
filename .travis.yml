@@ -4,4 +4,3 @@ compiler:
 script:
   - clang++ --version
   - make
-  - ./test.sh http://localhost:1204
