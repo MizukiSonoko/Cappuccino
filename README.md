@@ -42,6 +42,7 @@ Cappuccino::add_route("/chino", [&](Cappuccino::Request* req) -> Cappuccino::Res
 // runnning
 Cappuccino::run();
 ```
+
 ### 3. compile
 ```shell
 clang++ -std=c++0x -Wall app.cpp -o app
@@ -49,6 +50,16 @@ clang++ -std=c++0x -Wall app.cpp -o app
 ### 4. runnig
 ```shell
 $ ./app
+```
+
+# Directory
+```
+├── html
+│   └── index.html
+├── public
+│   └── css
+│       └── sample.css
+└── sample.cpp
 ```
 
 # LICENCE
