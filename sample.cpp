@@ -28,6 +28,13 @@ int main(int argc, char *argv[]) {
 		return response;
 	});
 
+	Cappuccino::add_route("/json", [&](Cappuccino::Request* req) -> Cappuccino::Response{
+		auto response = Cappuccino::Response(req->protocol(), Cappuccino::Response::FILE);
+		response.set_filename("sample.json");
+		response.add_header_value("Content-type", "json");
+		return response;
+	});
+
 	Cappuccino::add_route("/cocoa", [&](Cappuccino::Request* req) -> Cappuccino::Response{
 		if(req->method() == Cappuccino::Request::POST){
 			auto response = Cappuccino::Response(req->protocol(), Cappuccino::Response::FILE);
