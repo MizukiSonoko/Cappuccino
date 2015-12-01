@@ -245,12 +245,12 @@ namespace Cappuccino{
 		string filename_;
 		bool is_ready_;
 
-		string content_type_;
 		string protocol_;
 		Response_Type response_type_;
 		int status_;
 
 		std::map<string,string> replace_values_;
+		std::map<string,string> headers_;
 
 	  public:
 
@@ -264,12 +264,12 @@ namespace Cappuccino{
 			}
 	  	}
 
-		explicit Response(const string& protocol,const Response_Type& response_type):
-			content_type_("text/html"),
+		explicit Response(const string& protocol,const Response_Type& response_type):			
 			protocol_(protocol),
 			response_type_(response_type),
 			status_(200)
 			{
+				add_header_value("Content-type", "text/html");
 				add_replace_value("@public", "/" + static_directory_);
 			}
 
@@ -294,12 +294,8 @@ namespace Cappuccino{
 				default: return "OK";
 			}
 		}
-		void set_content_type(const string& content_type){
-			content_type_ = content_type;
-		}
-
-		string content_type() const{
-			return content_type_;
+		void add_header_value(const string& key, const string& val){
+			headers_.insert( std::map<string, string>::value_type( key, val));
 		}
 
 		void set_filename(const std::string& filename){
@@ -309,9 +305,16 @@ namespace Cappuccino{
 		void set_text(const std::string& text){
 			response_ = text;
 		}
+
 		string header() const{
-			return protocol_ + " " + std::to_string(status_) + " "+ status_str() +"\nContent-type: "+content_type_+"\n\n";
+			string str = protocol_ + " " + std::to_string(status_) + " "+ status_str() + "\n";
+			for(auto value = headers_.begin(); value != headers_.end(); value++){
+				str += value->first + ":" + value->second + "\n";
+			}
+			str += "\n";
+			return str;
 		}
+
 		operator string() const{
 			int file;			
 			char buf[BUF_SIZE] = {};
