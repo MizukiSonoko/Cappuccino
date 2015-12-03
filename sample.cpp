@@ -28,6 +28,7 @@ int main(int argc, char *argv[]) {
 		return response;
 	});
 
+
 	Cappuccino::add_route("/json", [&](Cappuccino::Request* req) -> Cappuccino::Response{
 		auto response = Cappuccino::Response(req->protocol(), Cappuccino::Response::FILE);
 		response.set_filename("sample.json");
