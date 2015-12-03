@@ -14,6 +14,8 @@
 #include <map>
 #include <list>
 #include <regex>
+#include <vector>
+#include <fstream>
 
 #define BUF_SIZE 4096
 #define MAX_LISTEN 128
@@ -35,8 +37,8 @@ namespace Logger{
 
    	static void e(string msg){
    		fprintf(stderr,"\033[1;31m%s\033[0m\n",msg.c_str());
-   	}
-};
+   	} 
+}
 
 namespace Cappuccino{
 	
@@ -299,7 +301,10 @@ namespace Cappuccino{
 		}
 
 		void set_filename(const std::string& filename){
-			filename_ = filename;
+			filename_ = filename;	
+			std::pair<string, string> response = file2str();
+			add_header_value("Content-type", response.second);
+			response_ = response.first;
 		}
 
 		void set_text(const std::string& text){
@@ -315,35 +320,43 @@ namespace Cappuccino{
 			return str;
 		}
 
-		operator string() const{
-			int file;			
-			char buf[BUF_SIZE] = {};
-			if(response_type_ == FILE){
-				string response = header(); 
+		std::pair<string,string> file2str() const{	
 
-				string file_path = document_root_ + "/" + filename_;
-
-				if ((file = open(file_path.c_str(), O_RDONLY)) < 0) {
-					auto static_file_path = filename_.substr(1, filename_.size()-1);
-					if ((file = open(static_file_path.c_str(), O_RDONLY)) < 0) {
-						Logger::e("No such file or directory \""+ file_path +"\" and "+static_file_path+"\"\n");
-					}else{
-						while (read(file, buf, sizeof(buf)) > 0) {
-							response += buf;
-						}
-						close(file);	
-					}
-				}else {
-					while (read(file, buf, sizeof(buf)) > 0) {
-						response += buf;
-					}	
-					close(file);
+			string filename = document_root_ + "/" + filename_;
+			std::vector<char> content;
+			std::ifstream ifs(filename, std::ios::in | std::ios::binary);
+			if((ifs.fail())){
+				auto static_file_path = filename_.substr(1, filename_.size()-1);
+				ifs.open(static_file_path, std::ios::in | std::ios::binary);
+				if(ifs.fail()){
+					Logger::e("No such file or directory \""+ filename +"\" and "+static_file_path+"\"\n");
+					return std::make_pair("", "text/html");	
 				}
-				replace_all(&response);
-				return response;
-			}else{
-				return header() + response_;
 			}
+			content.resize(ifs.seekg(0, std::ios::end).tellg());
+			ifs.seekg(0, std::ios::beg);
+			ifs.read(&content[0], static_cast<std::streamsize>(content.size()));
+
+			string response(content.begin(), content.end());
+			std::smatch m;
+			std::regex rejpg( R"(^\xFF\xD8)");
+			std::regex repng( R"(^\x89PNG)");
+			std::regex regif( R"(^GIF8[79]a)");
+
+			if(std::regex_search( response, m, rejpg )){
+				return make_pair(response, "image/jpg");
+		    }else if(std::regex_search( response, m, repng )){
+				return make_pair(response, "image/png");
+		    }else if(std::regex_search( response, m, regif )){
+				return make_pair(response, "image/gif");
+			}else{
+				replace_all(&response);
+				return std::make_pair(response, "text/html");
+			}
+		}
+
+		operator string() const{
+			return header() + response_;
 		}
 	};
 
@@ -380,7 +393,7 @@ namespace Cappuccino{
 	static void static_directory(const string& directory_name){
 		static_directory_ = directory_name;
 		add_route(
-			"/" + static_directory_ + "/css/<filename>", 
+			"/" + static_directory_ + "/<dirname>/<filename>", 
 			[&](Cappuccino::Request* req) -> Cappuccino::Response{
 				auto response = Cappuccino::Response(req->protocol(), Cappuccino::Response::FILE);
 				response.set_filename(req->url());
