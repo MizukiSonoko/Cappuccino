@@ -16,6 +16,7 @@
 #include <regex>
 #include <vector>
 #include <fstream>
+#include <future>
 
 #define BUF_SIZE 4096
 #define MAX_LISTEN 128
@@ -320,39 +321,52 @@ namespace Cappuccino{
 			return str;
 		}
 
-		std::pair<string,string> file2str() const{	
-
-			string filename = document_root_ + "/" + filename_;
-			std::vector<char> content;
-			std::ifstream ifs(filename, std::ios::in | std::ios::binary);
-			if((ifs.fail())){
-				auto static_file_path = filename_.substr(1, filename_.size()-1);
-				ifs.open(static_file_path, std::ios::in | std::ios::binary);
+		static std::vector<char> fileInput(string aFilename){
+			string filename = document_root_ + "/" + aFilename;
+			std::ifstream ifs( filename, std::ios::in | std::ios::binary);
+			if(ifs.fail()){
+				auto static_file_path = aFilename.substr(1, aFilename.size()-1);
+			    ifs.open(static_file_path, std::ios::in | std::ios::binary);
 				if(ifs.fail()){
-					Logger::e("No such file or directory \""+ filename +"\" and "+static_file_path+"\"\n");
-					return std::make_pair("", "text/html");	
+					throw std::runtime_error("No such file or directory \""+ filename +"\" and "+static_file_path+"\"\n");
 				}
 			}
-			content.resize(ifs.seekg(0, std::ios::end).tellg());
-			ifs.seekg(0, std::ios::beg);
-			ifs.read(&content[0], static_cast<std::streamsize>(content.size()));
 
-			string response(content.begin(), content.end());
-			std::smatch m;
-			std::regex rejpg( R"(^\xFF\xD8)");
-			std::regex repng( R"(^\x89PNG)");
-			std::regex regif( R"(^GIF8[79]a)");
+			ifs.seekg( 0, std::ios::end);
+			auto pos = ifs.tellg();
+			ifs.seekg( 0, std::ios::beg);
 
-			if(std::regex_search( response, m, rejpg )){
-				return make_pair(response, "image/jpg");
-		    }else if(std::regex_search( response, m, repng )){
-				return make_pair(response, "image/png");
-		    }else if(std::regex_search( response, m, regif )){
-				return make_pair(response, "image/gif");
-			}else{
-				replace_all(&response);
-				return std::make_pair(response, "text/html");
-			}
+			std::vector<char> buf(pos);
+			ifs.read(buf.data(), pos);
+			return buf;
+		}
+
+		std::pair<string,string> file2str() const{	
+			try{
+		        auto result = std::async( std::launch::async, fileInput, filename_);
+		        auto buf = result.get();
+
+		        string response(buf.begin(), buf.end());
+
+				std::smatch m;
+				std::regex rejpg( R"(^\xFF\xD8)");
+				std::regex repng( R"(^\x89PNG)");
+				std::regex regif( R"(^GIF8[79]a)");
+
+				if(std::regex_search( response, m, rejpg )){
+					return make_pair(response, "image/jpg");
+			    }else if(std::regex_search( response, m, repng )){
+					return make_pair(response, "image/png");
+			    }else if(std::regex_search( response, m, regif )){
+					return make_pair(response, "image/gif");
+				}else{
+					replace_all(&response);
+					return std::make_pair(response, "text/html");
+				}
+		    } catch ( std::exception & exception ){
+				Logger::e(exception.what());
+				return std::make_pair("", "text/html");	
+            }            
 		}
 
 		operator string() const{
@@ -487,7 +501,7 @@ namespace Cappuccino{
 
 	namespace Regex{
 		std::vector<string> findParent(string text){
-			std::vector<string> res;
+			std::vector<string> res(3);
 			string tmp = "";
 			bool isIn = false;
 			for(int i = 0; i< text.size(); ++i){
@@ -511,23 +525,21 @@ namespace Cappuccino{
 	std::regex re( R"(<\w+>)");
     std::smatch m;    
 	// Todo more short	
-	static Response create_response(char* method, char* aUrl, char* protocol,char* req){
-		Request* request = new Request( string(method), string(aUrl), string(protocol), string(req));
+	static Response create_response(char* method, char* url, char* protocol,char* req){
+		Request* request = new Request( string(method), string(url), string(protocol), string(req));
 		
-	    std::vector<string> reg;
+	    std::list<string> reg;
 
 	    bool correct = true;
 		for(auto url = routes_.begin(), end = routes_.end(); url != end; ++url){
 			correct = true;
 		    if(url->first.find("<", 0) != string::npos){
-		    	/* ToDo split sub function.
+		    	// ToDo split sub function.
 			    auto iter = url->first.cbegin();
 			    while ( std::regex_search( iter, url->first.cend(), m, re )){
 			        reg.push_back(m.str());
 			        iter = m[0].second;
 			    }
-			    */
-			    reg = Regex::findParent(url->first);
 
 			    if(reg.size() != 0){
 			    	auto val = split(url->first, "/");
@@ -596,7 +608,7 @@ namespace Cappuccino{
 		Logger::i(" * Running on http://localhost:" + std::to_string(port_) + "/");
 
 	    int cd[FD_SETSIZE];
-		struct sockaddr_in client;	    	
+		struct sockaddr_in client;
 
 	    for(int i = 0;i < FD_SETSIZE; i++){
 	        cd[i] = 0;
