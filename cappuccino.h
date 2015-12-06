@@ -485,24 +485,49 @@ namespace Cappuccino{
 	}
 
 
+	namespace Regex{
+		std::vector<string> findParent(string text){
+			std::vector<string> res;
+			string tmp = "";
+			bool isIn = false;
+			for(int i = 0; i< text.size(); ++i){
+				if(text[i] == '<'){
+					isIn = true;
+					continue;
+				}
+				if(text[i] == '>'){
+					isIn = false;
+					res.push_back(tmp);
+					tmp = "";
+				}
+
+				if(isIn){
+					tmp += text[i];
+				}
+			}
+			return res;
+		}
+	}
 	std::regex re( R"(<\w+>)");
     std::smatch m;    
 	// Todo more short	
-	static Response create_response(char* method, char* url, char* protocol,char* req){
-		Request* request = new Request( string(method), string(url), string(protocol), string(req));
+	static Response create_response(char* method, char* aUrl, char* protocol,char* req){
+		Request* request = new Request( string(method), string(aUrl), string(protocol), string(req));
 		
-	    std::list<string> reg;
+	    std::vector<string> reg;
 
 	    bool correct = true;
 		for(auto url = routes_.begin(), end = routes_.end(); url != end; ++url){
 			correct = true;
 		    if(url->first.find("<", 0) != string::npos){
-		    	// ToDo split sub function.
+		    	/* ToDo split sub function.
 			    auto iter = url->first.cbegin();
 			    while ( std::regex_search( iter, url->first.cend(), m, re )){
 			        reg.push_back(m.str());
 			        iter = m[0].second;
 			    }
+			    */
+			    reg = Regex::findParent(url->first);
 
 			    if(reg.size() != 0){
 			    	auto val = split(url->first, "/");
