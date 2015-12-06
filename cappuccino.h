@@ -347,7 +347,7 @@ namespace Cappuccino{
 		        auto buf = result.get();
 
 		        string response(buf.begin(), buf.end());
-
+		        
 				std::smatch m;
 				std::regex rejpg( R"(^\xFF\xD8)");
 				std::regex repng( R"(^\x89PNG)");
@@ -363,6 +363,19 @@ namespace Cappuccino{
 					replace_all(&response);
 					return std::make_pair(response, "text/html");
 				}
+
+		        /*
+				if( response[0] == '\xFF' && response[1] == '\xD8'){
+					return make_pair(response, "image/jpg");
+				}else if( response[0] == '\x89' && response[1] == 'P' && response[2] == 'N' && response[3] == 'G'){
+					return make_pair(response, "image/png");
+				}else if( response[0] == 'G' && response[1] == 'I' && response[2] == 'F' && response[3] == '8' && (response[4] == '7' || response[4] == '9') && response[2] == 'a'){
+					return make_pair(response, "image/gif");
+				}else{
+					replace_all(&response);
+					return std::make_pair(response, "text/html");
+				}
+				*/
 		    } catch ( std::exception & exception ){
 				Logger::e(exception.what());
 				return std::make_pair("", "text/html");	
