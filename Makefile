@@ -7,5 +7,14 @@ all: sample
 sample:
 	$(CC) $(CFLAG) sample.cpp -o sample
 
+test:
+	$(CC) $(CFLAG) -DTEST sample.cpp -o sample
+	./sample
+	rm sample
+
+remake:
+	rm sample	
+	$(CC) $(CFLAG) -DTEST sample.cpp -o sample
+
 clean:
 	rm sample
