@@ -39,28 +39,33 @@ int main(int argc, char *argv[]) {
 	Cappuccino::add_route("/cocoa", [&](Cappuccino::Request* req) -> Cappuccino::Response{
 		if(req->method() == Cappuccino::Request::POST){
 			auto response = Cappuccino::Response(req->protocol(), Cappuccino::Response::FILE);
-			response.set_filename("cocoa.html");
+
 			response.add_replace_value("@order", req->get_param("order"));
+
+			response.set_filename("cocoa.html");
 			return response;
 		}else{
 			auto response = Cappuccino::Response(req->protocol(), Cappuccino::Response::FILE);
-			response.set_filename("cocoa.html");
 			response.add_replace_value("@order", "うさぎ");
+
+			response.set_filename("cocoa.html");
 			return response;		
 		}
 	});
 
 	Cappuccino::add_route("/chino", [&](Cappuccino::Request* req) -> Cappuccino::Response{
 		auto response = Cappuccino::Response(req->protocol(), Cappuccino::Response::FILE);
-		response.set_filename("chino.html");
 
 		response.add_replace_value("@name", "mizuki");
 		response.add_replace_value("@waiter", "香風智乃");
+
+		response.set_filename("chino.html");
+
 		return response;
 	});
 
-	//Cappuccino::run();
-
+	Cappuccino::run();
+/*
 	Cappuccino::add_spec("/ exist",[&](Cappuccino::Application* app) -> bool{
 		std::string res = app->access("/", new Cappuccino::FakeRequest( "GET", "/"));
 		if(res.find("Cappuccino", 0) != std::string::npos)
@@ -73,6 +78,7 @@ int main(int argc, char *argv[]) {
 			return true;
 		return false;
 	});
+
 	Cappuccino::testRun();
 //*/
 	return 0;
