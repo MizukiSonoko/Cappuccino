@@ -32,6 +32,9 @@ namespace Logger{
 	   		printf("%s\n",msg.c_str());
    	}
 
+   	static void safe(string msg){
+   		fprintf(stderr,"\x1b[32m%s\x1b[39m\n",msg.c_str());
+   	}
    	static void i(string msg){
    		printf("%s\n",msg.c_str());
    	}
@@ -347,7 +350,7 @@ namespace Cappuccino{
 		        auto buf = result.get();
 
 		        string response(buf.begin(), buf.end());
-		        
+
 				std::smatch m;
 				std::regex rejpg( R"(^\xFF\xD8)");
 				std::regex repng( R"(^\x89PNG)");
@@ -539,6 +542,7 @@ namespace Cappuccino{
     std::smatch m;    
 	// Todo more short	
 	static Response create_response(char* method, char* url, char* protocol,char* req){
+		Logger::i(string(req));
 		Request* request = new Request( string(method), string(url), string(protocol), string(req));
 		
 	    std::list<string> reg;
@@ -670,7 +674,7 @@ namespace Cappuccino{
 	                }
 	            }
 	        }
-	    }
+	    }	    
 	}
 
 	static void Cappuccino(int argc, char *argv[]) {
@@ -681,6 +685,45 @@ namespace Cappuccino{
 		load_argument_value(argc, argv);
 		init_socket();
 		init_signal();
+	}
+
+
+	class FakeRequest : public Request{
+		public:
+			FakeRequest(string method,string url,string protocol = "HTTP/1.1"):
+				Request( method, url, protocol, method + " " + url + " " + protocol){}
+	};
+
+	class Application{
+		public:
+			string access(string route, FakeRequest* req){
+				return routes_[route](req);
+			}
+	};
+	std::map<string, std::function<bool(Application*)>> tests_;
+	static void add_spec(const string name, const std::function<bool(Application*)>& spec){
+		tests_.insert( std::map<string,std::function<bool(Application*)>>::value_type( name, spec));
+	}
+	static void testRun(){
+
+		Application* app = new Application();
+		bool allOk = true;
+		for(auto spec = tests_.begin(), end = tests_.end(); spec != end; ++spec){
+			Logger::i(spec->first);
+			if(spec->second(app)){
+				Logger::safe(" -> Passed");		
+			}else{
+				Logger::e("-> Error");				
+				allOk = false;
+			}
+		}
+		Logger::i("-------------");
+		if(allOk){
+			Logger::safe("All test passed!");		
+		}else{
+			Logger::e("It has Error");
+		}
+		delete app;
 	}
 
 };
