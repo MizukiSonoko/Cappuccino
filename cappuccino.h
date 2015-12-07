@@ -542,7 +542,6 @@ namespace Cappuccino{
     std::smatch m;    
 	// Todo more short	
 	static Response create_response(char* method, char* url, char* protocol,char* req){
-		Logger::i(string(req));
 		Request* request = new Request( string(method), string(url), string(protocol), string(req));
 		
 	    std::list<string> reg;
@@ -697,7 +696,10 @@ namespace Cappuccino{
 	class Application{
 		public:
 			string access(string route, FakeRequest* req){
-				return routes_[route](req);
+				if(routes_.find(route) != routes_.end())
+					return routes_[route](req);
+				else
+					return NotFound(req->protocol());
 			}
 	};
 	std::map<string, std::function<bool(Application*)>> tests_;
@@ -713,7 +715,7 @@ namespace Cappuccino{
 			if(spec->second(app)){
 				Logger::safe(" -> Passed");		
 			}else{
-				Logger::e("-> Error");				
+				Logger::e(" -> Error");				
 				allOk = false;
 			}
 		}

@@ -59,7 +59,21 @@ int main(int argc, char *argv[]) {
 		return response;
 	});
 
-	Cappuccino::run();
+	//Cappuccino::run();
 
+	Cappuccino::add_spec("/ exist",[&](Cappuccino::Application* app) -> bool{
+		std::string res = app->access("/", new Cappuccino::FakeRequest( "GET", "/"));
+		if(res.find("Cappuccino", 0) != std::string::npos)
+			return true;
+		return false;
+	});
+	Cappuccino::add_spec("/hoge not exist(will be failed)",[&](Cappuccino::Application* app) -> bool{
+		std::string res = app->access("/hoge", new Cappuccino::FakeRequest( "GET", "/hoge"));
+		if(res.find("Cappuccino", 0) != std::string::npos)
+			return true;
+		return false;
+	});
+	Cappuccino::testRun();
+//*/
 	return 0;
 }
