@@ -44,6 +44,7 @@ namespace Logger{
    	} 
 }
 
+
 namespace Cappuccino{
 	
 	using string = std::string;
@@ -351,11 +352,14 @@ namespace Cappuccino{
 
 		        string response(buf.begin(), buf.end());
 
+
 				std::smatch m;
 				std::regex rejpg( R"(^\xFF\xD8)");
 				std::regex repng( R"(^\x89PNG)");
 				std::regex regif( R"(^GIF8[79]a)");
 
+		    	Logger::i("regex 2");
+#ifdef __APPLE__
 				if(std::regex_search( response, m, rejpg )){
 					return make_pair(response, "image/jpg");
 			    }else if(std::regex_search( response, m, repng )){
@@ -366,19 +370,38 @@ namespace Cappuccino{
 					replace_all(&response);
 					return std::make_pair(response, "text/html");
 				}
+#else
+	#ifdef __GNUC__
 
-		        /*
-				if( response[0] == '\xFF' && response[1] == '\xD8'){
+		if(__GNUC__ >= 4 && __GNUC_MINOR__ >= 9){
+				if(std::regex_search( response, m, rejpg )){
 					return make_pair(response, "image/jpg");
-				}else if( response[0] == '\x89' && response[1] == 'P' && response[2] == 'N' && response[3] == 'G'){
+			    }else if(std::regex_search( response, m, repng )){
 					return make_pair(response, "image/png");
-				}else if( response[0] == 'G' && response[1] == 'I' && response[2] == 'F' && response[3] == '8' && (response[4] == '7' || response[4] == '9') && response[2] == 'a'){
+			    }else if(std::regex_search( response, m, regif )){
 					return make_pair(response, "image/gif");
 				}else{
 					replace_all(&response);
 					return std::make_pair(response, "text/html");
 				}
-				*/
+		}else{
+	    	Logger::i("nuuse regex 2");			
+			if( response[0] == '\xFF' && response[1] == '\xD8'){
+				return make_pair(response, "image/jpg");
+			}else if( response[0] == '\x89' && response[1] == 'P' && response[2] == 'N' && response[3] == 'G'){
+				return make_pair(response, "image/png");
+			}else if( response[0] == 'G' && response[1] == 'I' && response[2] == 'F' && response[3] == '8' && (response[4] == '7' || response[4] == '9') && response[2] == 'a'){
+				return make_pair(response, "image/gif");
+			}else{
+				replace_all(&response);
+				return std::make_pair(response, "text/html");
+			}
+		}
+
+	#endif
+#endif
+	    	Logger::i("regex 2 end");
+
 		    } catch ( std::exception & exception ){
 				Logger::e(exception.what());
 				return std::make_pair("", "text/html");	
@@ -544,18 +567,35 @@ namespace Cappuccino{
 	static Response create_response(char* method, char* url, char* protocol,char* req){
 		Request* request = new Request( string(method), string(url), string(protocol), string(req));
 		
-	    std::list<string> reg;
+	    std::vector<string> reg;
 
 	    bool correct = true;
 		for(auto url = routes_.begin(), end = routes_.end(); url != end; ++url){
 			correct = true;
 		    if(url->first.find("<", 0) != string::npos){
-		    	// ToDo split sub function.
+		    	Logger::i("regex 1");
+#ifdef __APPLE__
 			    auto iter = url->first.cbegin();
 			    while ( std::regex_search( iter, url->first.cend(), m, re )){
 			        reg.push_back(m.str());
 			        iter = m[0].second;
 			    }
+#else
+	#ifdef __GNUC__
+
+				if(__GNUC__ >= 4 && __GNUC_MINOR__ >= 9){
+				    auto iter = url->first.cbegin();
+				    while ( std::regex_search( iter, url->first.cend(), m, re )){
+				        reg.push_back(m.str());
+				        iter = m[0].second;
+				    }
+				}else{
+		    	Logger::i("unuse regex");
+					reg = Regex::findParent(url->first);
+				}
+	#endif
+#endif
+		    	Logger::i("regex 1 end");
 
 			    if(reg.size() != 0){
 			    	auto val = split(url->first, "/");
