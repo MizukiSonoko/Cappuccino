@@ -14,7 +14,13 @@
 #include <map>
 #include <list>
 #include <algorithm>
-//#include <regex>
+
+#if defined(__APPLE__) || defined(__GNUC__) && __GNUC__ * 10  + __GNUC_MINOR__ >= 49
+
+#include <regex>
+
+#endif
+
 #include <vector>
 #include <fstream>
 #include <future>
@@ -353,13 +359,7 @@ namespace Cappuccino{
 
 		        string response(buf.begin(), buf.end());
 
-/*
-				std::smatch m;
-				std::regex rejpg( R"(^\xFF\xD8)");
-				std::regex repng( R"(^\x89PNG)");
-				std::regex regif( R"(^GIF8[79]a)");
-*/
-
+#if !defined(__APPLE__) && defined(__GNUC__) && __GNUC__ * 10  + __GNUC_MINOR__ < 49
 				if( response[0] == '\xFF' && response[1] == '\xD8'){
 					return make_pair(response, "image/jpg");
 				}else if( response[0] == '\x89' && response[1] == 'P' && response[2] == 'N' && response[3] == 'G'){
@@ -370,6 +370,23 @@ namespace Cappuccino{
 					replace_all(&response);
 					return std::make_pair(response, "text/html");
 				}
+#else
+				std::smatch m;
+				std::regex rejpg( R"(^\xFF\xD8)");
+				std::regex repng( R"(^\x89PNG)");
+				std::regex regif( R"(^GIF8[79]a)");
+
+				if(std::regex_search( response, m, rejpg )){
+					return make_pair(response, "image/jpg");
+			    }else if(std::regex_search( response, m, repng )){
+					return make_pair(response, "image/png");
+			    }else if(std::regex_search( response, m, regif )){
+					return make_pair(response, "image/gif");
+				}else{
+					replace_all(&response);
+					return std::make_pair(response, "text/html");
+				}
+#endif
 
 		    } catch ( std::exception & exception ){
 				Logger::e(exception.what());
@@ -530,8 +547,10 @@ namespace Cappuccino{
 			return res;
 		}
 	}
-//	std::regex re( R"(<\w+>)");
-//    std::smatch m;    
+#if defined(__APPLE__) || defined(__GNUC__) && __GNUC__ * 10  + __GNUC_MINOR__ >= 49	
+	std::regex re( R"(<\w+>)");
+    std::smatch m;    
+#endif    
 	// Todo more short	
 	static Response create_response(char* method, char* url, char* protocol,char* req){
 		Request* request = new Request( string(method), string(url), string(protocol), string(req));
@@ -543,7 +562,18 @@ namespace Cappuccino{
 			correct = true;
 		    if(url->first.find("<", 0) != string::npos){
 
+#if !defined(__APPLE__) && defined(__GNUC__) && __GNUC__ * 10  + __GNUC_MINOR__ < 49
+
 				reg = Regex::findParent(url->first);
+
+#else
+				auto iter = url->first.cbegin();
+			    while ( std::regex_search( iter, url->first.cend(), m, re )){
+			        reg.push_back(m.str());
+			        iter = m[0].second;
+			    }
+#endif
+
 
 			    if(reg.size() != 0){
 			    	auto val = split(url->first, "/");
