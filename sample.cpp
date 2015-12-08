@@ -73,12 +73,37 @@ int main(int argc, char *argv[]) {
 			return true;
 		return false;
 	});
-	Cappuccino::add_spec("/hoge not exist(will be failed)",[&](Cappuccino::Application* app) -> bool{
+
+	Cappuccino::add_spec("/hello plain text", [&](Cappuccino::Application* app) -> bool{
+		std::string res = app->access("/hello", new Cappuccino::FakeRequest( "GET", "/hello"));
+		if(res.find("Hello world", 0) != std::string::npos)
+			return true;
+		return false;
+	});
+
+
+	Cappuccino::add_spec("/hoge not exist",[&](Cappuccino::Application* app) -> bool{
 		std::string res = app->access("/hoge", new Cappuccino::FakeRequest( "GET", "/hoge"));
 		if(res.find("Page not found", 0) != std::string::npos)
 			return true;
 		return false;
 	});
+
+	Cappuccino::add_spec("/chino running replace",[&](Cappuccino::Application* app) -> bool{
+		std::string res = app->access("/chino", new Cappuccino::FakeRequest( "GET", "/chino"));
+		if(res.find("香風智乃", 0) != std::string::npos)
+			return true;
+		return false;
+	});
+
+	Cappuccino::add_spec("/gochiusa/cocoa replace with url",[&](Cappuccino::Application* app) -> bool{
+		std::string res = app->access("/gochiusa/cocoa", new Cappuccino::FakeRequest( "GET", "/gochiusa/cocoa"));
+		Logger::i(res);
+		if(res.find("cocoa", 0) != std::string::npos)
+			return true;
+		return false;
+	});
+	
 
 	Cappuccino::testRun();
 
