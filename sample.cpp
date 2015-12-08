@@ -14,10 +14,10 @@ int main(int argc, char *argv[]) {
 
 	Cappuccino::add_route("/gochiusa/<character_name>", [&](Cappuccino::Request* req) -> Cappuccino::Response{
 		auto response = Cappuccino::Response(req->protocol(), Cappuccino::Response::FILE);
-		response.set_filename("chino.html");
-
 		response.add_replace_value("@name", "mizuki");
 		response.add_replace_value("@waiter", req->url_params()["character_name"]);
+
+		response.set_filename("chino.html");
 
 		return response;
 	});
@@ -96,10 +96,9 @@ int main(int argc, char *argv[]) {
 		return false;
 	});
 
-	Cappuccino::add_spec("/gochiusa/cocoa replace with url",[&](Cappuccino::Application* app) -> bool{
-		std::string res = app->access("/gochiusa/cocoa", new Cappuccino::FakeRequest( "GET", "/gochiusa/cocoa"));
-		Logger::i(res);
-		if(res.find("cocoa", 0) != std::string::npos)
+	Cappuccino::add_spec("/gochiusa/chiya replace with url",[&](Cappuccino::Application* app) -> bool{
+		std::string res = app->access("/gochiusa/chiya", new Cappuccino::FakeRequest( "GET", "/gochiusa/chiya"));
+		if(res.find("chiya", 0) != std::string::npos)
 			return true;
 		return false;
 	});
