@@ -549,7 +549,7 @@ namespace Cappuccino{
 	}
 #if defined(__APPLE__) || defined(__GNUC__) && __GNUC__ * 10  + __GNUC_MINOR__ >= 49	
 	std::regex re( R"(<\w+>)");
-    std::smatch m;    
+    std::smatch m;
 #endif    
 	// Todo more short	
 	static Response create_response(char* method, char* url, char* protocol,char* req){
@@ -714,12 +714,59 @@ namespace Cappuccino{
 	class Application{
 		public:
 			string access(string route, FakeRequest* req){
-				if(routes_.find(route) != routes_.end())
+				if(routes_.find(route) != routes_.end()){
 					return routes_[route](req);
-				else
+				}else{
+				    std::vector<string> reg;
+				    bool correct = true;
+					for(auto url = routes_.begin(), end = routes_.end(); url != end; ++url){
+						correct = true;
+					    if(url->first.find("<", 0) != string::npos){
+
+#if !defined(__APPLE__) && defined(__GNUC__) && __GNUC__ * 10  + __GNUC_MINOR__ < 49
+
+							reg = Regex::findParent(url->first);
+
+#else
+							auto iter = url->first.cbegin();
+						    while ( std::regex_search( iter, url->first.cend(), m, re )){
+						        reg.push_back(m.str());
+						        iter = m[0].second;
+						    }
+#endif
+						    if(reg.size() != 0){
+						    	auto val = split(url->first, "/");
+						    	auto inp = split(req->url(), "/");
+
+						    	if(val.size() != inp.size()) continue;
+
+						    	for(auto v : val){
+						    		if(find(reg.begin(), reg.end(), v) != reg.end()){
+						    			req->add_url_param( v.substr(1, v.size() - 2), url_decode(inp.front()));   
+						    		}else if(v != inp.front()){  			
+				    					correct = false;
+				    				}
+						    		inp.pop_front();
+						    	}
+						    }
+						    if(correct){
+								Response result = url->second(req);
+								delete req;
+								return result;			    	
+						    }
+						}else{
+							if(url->first == req->url()){
+								Response result = routes_[req->url()](req);
+								delete req;
+								return result;
+							}
+						}
+					}
 					return NotFound(req->protocol());
+				}
 			}
 	};
+
 	std::map<string, std::function<bool(Application*)>> tests_;
 	static void add_spec(const string name, const std::function<bool(Application*)>& spec){
 		tests_.insert( std::map<string,std::function<bool(Application*)>>::value_type( name, spec));
