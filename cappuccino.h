@@ -13,6 +13,7 @@
 #include <functional>
 #include <map>
 #include <list>
+#include <algorithm>
 //#include <regex>
 #include <vector>
 #include <fstream>
