@@ -16,9 +16,7 @@
 #include <algorithm>
 
 #if defined(__APPLE__) || defined(__GNUC__) && __GNUC__ * 10  + __GNUC_MINOR__ >= 49
-
 #include <regex>
-
 #endif
 
 #include <vector>
@@ -582,7 +580,7 @@ namespace Cappuccino{
 			    	if(val.size() != inp.size()) continue;
 
 			    	for(auto v : val){
-			    		if(find(reg.begin(), reg.end(), v) != reg.end()){
+			    		if(find(reg.begin(), reg.end(), v) != reg.end() && v.size() > 2){
 			    			request->add_url_param( v.substr(1, v.size() - 2), url_decode(inp.front()));   
 			    		}else if(v != inp.front()){  			
 	    					correct = false;
@@ -734,6 +732,7 @@ namespace Cappuccino{
 						        iter = m[0].second;
 						    }
 #endif
+
 						    if(reg.size() != 0){
 						    	auto val = split(url->first, "/");
 						    	auto inp = split(req->url(), "/");
@@ -741,7 +740,7 @@ namespace Cappuccino{
 						    	if(val.size() != inp.size()) continue;
 
 						    	for(auto v : val){
-						    		if(find(reg.begin(), reg.end(), v) != reg.end()){
+						    		if(find(reg.begin(), reg.end(), v) != reg.end() && v.size() > 2){
 						    			req->add_url_param( v.substr(1, v.size() - 2), url_decode(inp.front()));   
 						    		}else if(v != inp.front()){  			
 				    					correct = false;
