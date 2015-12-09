@@ -14,6 +14,7 @@
 #include <map>
 #include <list>
 #include <algorithm>
+#include <iostream>
 
 #if defined(__APPLE__) || defined(__GNUC__) && __GNUC__ * 10  + __GNUC_MINOR__ >= 49
 #include <regex>
@@ -40,9 +41,12 @@ namespace Logger{
    	static void safe(string msg){
    		fprintf(stderr,"\x1b[32m%s\x1b[39m\n",msg.c_str());
    	}
-   	static void i(string msg){
-   		printf("%s\n",msg.c_str());
+
+   	template<typename T>
+   	static void i(T msg){
+   		std::cout<< msg << "\n";
    	}
+
 
    	static void e(string msg){
    		fprintf(stderr,"\033[1;31m%s\033[0m\n",msg.c_str());
@@ -524,7 +528,7 @@ namespace Cappuccino{
 
 	namespace Regex{
 		std::vector<string> findParent(string text){
-			std::vector<string> res(3);
+			std::vector<string> res;
 			string tmp = "";
 			bool isIn = false;
 			for(int i = 0; i< text.size(); ++i){
@@ -534,7 +538,7 @@ namespace Cappuccino{
 				}
 				if(text[i] == '>'){
 					isIn = false;
-					res.push_back(tmp);
+					res.push_back("<"+tmp+">");
 					tmp = "";
 				}
 
