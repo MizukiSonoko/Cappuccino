@@ -35,11 +35,11 @@ namespace Logger{
 
    	static void d(string msg){
 		if(debug_)
-	   		printf("%s\n",msg.c_str());
+	   		std::cout<< msg << "\n";
    	}
 
    	static void safe(string msg){
-   		fprintf(stderr,"\x1b[32m%s\x1b[39m\n",msg.c_str());
+   		std::cerr << "\x1b[32m"<< msg << "\x1b[39m\n";
    	}
 
    	template<typename T>
@@ -49,7 +49,7 @@ namespace Logger{
 
 
    	static void e(string msg){
-   		fprintf(stderr,"\033[1;31m%s\033[0m\n",msg.c_str());
+   		std::cout<<"\033[1;31m"<< msg << "\033[0m\n";
    	} 
 }
 
