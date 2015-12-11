@@ -435,6 +435,7 @@ namespace Cappuccino{
 		string filename_;
 		std::map<string, string>* replaces_;
 
+	  public:
 		ResponseBuilder& status(int code, string msg){
 		    headers_->set_status_code(code);
 		    headers_->set_message(msg);

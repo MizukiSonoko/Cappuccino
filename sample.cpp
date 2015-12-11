@@ -18,7 +18,7 @@ int main(int argc, char *argv[]) {
 		response.add_replace_value("@waiter", req->url_params()["character_name"]);
 
 		response.set_filename("chino.html");
-
+		Logger::i(std::string(response));
 		return response;
 	});
 
@@ -64,7 +64,16 @@ int main(int argc, char *argv[]) {
 		return response;
 	});
 
+	Cappuccino::add_route("/rize", [&](Cappuccino::Request* req) -> Cappuccino::Response{
+		auto res = Cappuccino::ResponseBuilder()
+			.status(200, "OK")
+			.http_version("1.1")
+			.build();
 
+		// Dumyu
+		auto response = Cappuccino::Response(req->protocol(), Cappuccino::Response::FILE);
+		return response;		
+	});
 #ifdef TEST
 	
 	Cappuccino::add_spec("/ exist",[&](Cappuccino::Application* app) -> bool{
