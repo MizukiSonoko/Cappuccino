@@ -395,9 +395,142 @@ namespace Cappuccino{
 				return std::make_pair("", "text/html");	
             }            
 		}
-
 		operator string() const{
 			return header() + response_;
+		}
+	};
+
+	class Headers{
+		int status_code_;
+		string message_;
+		string version_;
+		std::map<string, string> params_;
+	  public:
+	  	void set_status_code(int code){
+			status_code_ = code;	  		
+	  	}
+		void set_message(string msg){
+			message_ = msg;
+		}
+		void set_version(string ver){
+			version_ = ver;
+		}
+		void add_param(string key, string val){
+			params_.insert( make_pair(key,val));
+		}
+
+		operator string() const{			
+			string str = "HTTP/" + version_ + " " + std::to_string(status_code_) + " "+ message_+ "\n";
+			for(auto value = params_.begin(); value != params_.end(); value++){
+				str += value->first + ":" + value->second + "\n";
+			}
+			str += "\n";
+			return "";
+		}
+	};
+
+	class ResponseBuilder{
+		Headers* headers_;
+		string body_;
+		string filename_;
+		std::map<string, string>* replaces_;
+
+		ResponseBuilder& status(int code, string msg){
+		    headers_->set_status_code(code);
+		    headers_->set_message(msg);
+		    return *this;
+		}
+
+		ResponseBuilder& http_version(string val){
+		    headers_->set_version(val);
+		    return *this;
+		}
+
+		ResponseBuilder& param(string key,string val){
+		    headers_->add_param( key, val);
+		    return *this;			
+		}
+
+		static std::vector<char> fileInput(string aFilename){
+			string filename = document_root_ + "/" + aFilename;
+			std::ifstream ifs( filename, std::ios::in | std::ios::binary);
+			if(ifs.fail()){
+				auto static_file_path = aFilename.substr(1, aFilename.size()-1);
+			    ifs.open(static_file_path, std::ios::in | std::ios::binary);
+				if(ifs.fail()){
+					throw std::runtime_error("No such file or directory \""+ filename +"\" and "+static_file_path+"\"\n");
+				}
+			}
+			ifs.seekg( 0, std::ios::end);
+			auto pos = ifs.tellg();
+			ifs.seekg( 0, std::ios::beg);
+
+			std::vector<char> buf(pos);
+			ifs.read(buf.data(), pos);
+			return buf;
+		}
+
+		std::pair<string,string> file2str() const{	
+			try{
+		        auto result = std::async( std::launch::async, fileInput, filename_);
+		        auto buf = result.get();
+
+		        string response(buf.begin(), buf.end());
+#if !defined(__APPLE__) && defined(__GNUC__) && __GNUC__ * 10  + __GNUC_MINOR__ < 49
+				if( response[0] == '\xFF' && response[1] == '\xD8'){
+					return make_pair(response, "image/jpg");
+				}else if( response[0] == '\x89' && response[1] == 'P' && response[2] == 'N' && response[3] == 'G'){
+					return make_pair(response, "image/png");
+				}else if( response[0] == 'G' && response[1] == 'I' && response[2] == 'F' && response[3] == '8' && (response[4] == '7' || response[4] == '9') && response[2] == 'a'){
+					return make_pair(response, "image/gif");
+				}else{
+					return std::make_pair(response, "text/html");
+				}
+#else
+				std::smatch m;
+				std::regex rejpg( R"(^\xFF\xD8)");
+				std::regex repng( R"(^\x89PNG)");
+				std::regex regif( R"(^GIF8[79]a)");
+
+				if(std::regex_search( response, m, rejpg )){
+					return make_pair(response, "image/jpg");
+			    }else if(std::regex_search( response, m, repng )){
+					return make_pair(response, "image/png");
+			    }else if(std::regex_search( response, m, regif )){
+					return make_pair(response, "image/gif");
+				}else{
+					return std::make_pair(response, "text/html");
+				}
+#endif
+
+		    } catch ( std::exception & exception ){
+				Logger::e(exception.what());
+				return std::make_pair("", "text/html");	
+            }            
+		}
+
+		ResponseBuilder& text(string& txt){
+			body_ = txt;
+			return *this;
+		}
+
+		ResponseBuilder& file(string& filename){
+			filename_ = filename;
+			return *this;
+		}
+
+		ResponseBuilder& replace(string key, string val){
+			replaces_->insert( make_pair(key, val) );
+		    return *this;
+		}
+
+		string build(){
+			auto body_pair = file2str();
+			headers_->add_param( "Content-type", body_pair.second);
+			if(body_pair.second == "text/html"){
+
+			}
+			return string(*headers_) + body_pair.first;
 		}
 	};
 
