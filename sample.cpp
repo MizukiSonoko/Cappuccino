@@ -113,6 +113,15 @@ int main(int argc, char *argv[]) {
 		return false;
 	});
 
+
+	// Get 
+
+	Cappuccino::add_spec("/gochiusa/sharo?name=chino get url paramaters",[&](Cappuccino::Application* app) -> bool{
+		std::string res = app->access("/gochiusa/sharo?name=chino", new Cappuccino::FakeRequest( "GET", "/gochiusa/sharo?name=chino"));
+		return true;
+	});
+
+
 	Cappuccino::testRun();
 
 #else
