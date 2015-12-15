@@ -46,8 +46,6 @@ namespace Logger{
    	static void i(T msg){
    		std::cout<< msg << "\n";
    	}
-
-
    	static void e(string msg){
    		std::cout<<"\033[1;31m"<< msg << "\033[0m\n";
    	} 
@@ -740,7 +738,6 @@ namespace Cappuccino{
 			}
 		}
 		Response response = NotFound(request->protocol());
-		Logger::d(response);
 		return response;
 	}
 
@@ -904,6 +901,12 @@ namespace Cappuccino{
 			}
 	};
 
+
+	static void realTimeRun(){
+
+	}
+
+
 	std::map<string, std::function<bool(Application*)>> tests_;
 	static void add_spec(const string name, const std::function<bool(Application*)>& spec){
 		tests_.insert( std::map<string,std::function<bool(Application*)>>::value_type( name, spec));
@@ -913,7 +916,6 @@ namespace Cappuccino{
 		Application* app = new Application();
 		bool allOk = true;
 		for(auto spec = tests_.begin(), end = tests_.end(); spec != end; ++spec){
-			Logger::i(spec->first);
 			if(spec->second(app)){
 				Logger::safe(" -> Passed");		
 			}else{
