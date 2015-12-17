@@ -194,6 +194,14 @@ namespace Cappuccino{
 				method_ = OPTION;
 			}
 		}
+
+		void set_url(const strig& u){
+			url_ = u;
+		}
+
+		void set_protocol(const string& p){
+			protocol_ = p;
+		}
 	  public:
 
 	  	string protocol() const{
@@ -228,36 +236,46 @@ namespace Cappuccino{
 			return "Invalid param name";
 		}
 
-		Request(){
-			/*
-			set_method(method);
-			url_ = url;
-			protocol_ = protocol;
+		Request() : method_(GET), url_("/"), protocol_("HTTP/1.1"){}
 
-			auto lines = split(request,"\n");
+		unique_ptr<Request> factory(string request){
+			auto res = unique_ptr<Request>(new Request());
 
-			string name;
+			auto lines = utils::split(request,"\n");			
+			auto line_size = lines.size();
+			if(line_size == 1) return res;
 
-			for(auto p : lines){
-				auto header_name_val = split(p,": ");
-				if(header_name_val.size() == 2){
-					name = header_name_val.front();
-					header_name_val.pop_back();
-					headers_.insert( std::map< string, string>::value_type( name, header_name_val.front()));
+			auto request_head = utils::split(lines[0]," ");		
+			res->set_method(request_head[0));
+			// get url paramaters.
+			auto url_params = utils::split(request_head[1],"?");
+			req->set_url(url_params[0]);
+
+			req->set_protocol(request_head[2]);
+
+			for(int i = 1;i < size; i++){
+				auto key_val = utils::split(p,": ");
+				if(key_val.size() == 2){
+					res->headers_.insert( std::map< string, string>::value_type( key_val[0], key_val[1]));
 				}else{
-					auto param_name_val = split(p,"=");
+					// POST paramaters
+					auto param_key_val = utils::split(p,"=");
 					if(param_name_val.size() == 2){
-						name = param_name_val.front();
-						param_name_val.pop_back();
-						params_.insert( std::map< string, string>::value_type( name, url_decode(param_name_val.front())));
+						res->params_.insert( std::map< string, string>::value_type( param_name_val[0], utils::url_decode(param_name_val[1])));
 					}
 				}
 			}
-			*/
-		}
-
-		Request* factory(string request){
-
+			if(url_params == 2){
+				// GET paramaters
+				auto params = utils::split(url_params[1],"&");
+				for(auto param : params){
+					auto param_key_val = utils::split(,"=");
+					if(param_name_val.size() == 2){
+						res->params_.insert( std::map< string, string>::value_type( param_name_val[0], utils::url_decode(param_name_val[1])));
+					}
+				}
+			}
+			return res;
 		}
 	};
 
@@ -664,81 +682,19 @@ namespace Cappuccino{
 		}
 	}
 
-    static std::pair<string, std::map<string,string>> get_url_params(string u){
-    	std::map<string,string> res;
-    	auto url = split(u, "?");
-    	if(url.size()==1) return make_pair( url[0], res);
-    	auto params = split(url[1], "&");
-    	for(auto param : params){
-    		auto kv = split(param, "=");
-    		if(kv.size() == 2)
-	    		res.insert(make_pair( kv[0], kv[1] ));
-    	}
-    	return make_pair( url[0], res);
-    }
-
 #if defined(__APPLE__) || defined(__GNUC__) && __GNUC__ * 10  + __GNUC_MINOR__ >= 49	
 	std::regex re( R"(<\w+>)");
     std::smatch m;
 #endif    
-	// Todo more short	
+
 	static Response create_response(char* req){
 		Request* request = new Request.factory(string(req));
-		
-	    std::vector<string> reg;
-
-	    bool correct = true;
-		for(auto url = routes_.begin(), end = routes_.end(); url != end; ++url){
-			correct = true;
-		    if(url->first.find("<", 0) != string::npos){
-
-#if !defined(__APPLE__) && defined(__GNUC__) && __GNUC__ * 10  + __GNUC_MINOR__ < 49
-
-				reg = Regex::findParent(url->first);
-
-#else
-				auto iter = url->first.cbegin();
-			    while ( std::regex_search( iter, url->first.cend(), m, re )){
-			        reg.push_back(m.str());
-			        iter = m[0].second;
-			    }
-#endif
-
-
-			    if(reg.size() != 0){
-			    	auto val = split(url->first, "/");
-			    	auto inp = split(request->url(), "/");
-
-			    	if(val.size() != inp.size()) continue;
-
-			    	for(auto v : val){
-			    		if(find(reg.begin(), reg.end(), v) != reg.end() && v.size() > 2){
-			    			request->add_url_param( v.substr(1, v.size() - 2), url_decode(inp.front()));   
-			    		}else if(v != inp.front()){  			
-	    					correct = false;
-	    				}
-			    		inp.pop_back();
-			    	}
-			    }
-			    if(correct){
-					Response result = url->second(request);
-					delete request;
-					return result;			    	
-			    }
-			}else{
-				if(url->first == request->url()){
-					Response result = routes_[request->url()](request);
-					delete request;
-					return result;
-				}
-			}
-		}
+		// WIP
 		Response response = NotFound(request->protocol());
 		return response;
 	}
 
 	static string receive_process(int sessionfd){
-		Logger::d("receive_process");
 		char buf[BUF_SIZE] = {};
 		char method[BUF_SIZE] = {};
 		char url[BUF_SIZE] = {};
@@ -748,9 +704,7 @@ namespace Cappuccino{
 			Logger::e("receive error!");
 			exit(EXIT_FAILURE);
 		}
-		sscanf(buf, "%s %s %s", method, url, protocol);
 		bool isbody = false;
-		do {
 			if (!isbody && strstr(buf, "\r\n")) {
 				isbody = true;
 			}
@@ -761,26 +715,26 @@ namespace Cappuccino{
 				memset(&buf, 0, sizeof(buf));
 			}
 		} while (read(sessionfd, buf+strlen(buf), sizeof(buf) - strlen(buf)) > 0);
-		Logger::d(url);
-		return create_response( method, url, protocol, buf);
+		return create_response(buf);
 	}
 	
 	time_t client_info[FD_SETSIZE];
 
 	static void run(){
+		init_socket();
+		init_signal();
 		Logger::i(" * Running on http://localhost:" + std::to_string(port_) + "/");
 
 	    int cd[FD_SETSIZE];
 		struct sockaddr_in client;
+        int    fd;
+        struct timeval tv;
 
 	    for(int i = 0;i < FD_SETSIZE; i++){
 	        cd[i] = 0;
 	    }
 
 	    while(1) {
-
-	        int    fd;
-	        struct timeval tv;
 	        tv.tv_sec = 0;
 	        tv.tv_usec = 0;
 
@@ -811,10 +765,8 @@ namespace Cappuccino{
 	                        FD_CLR(fd, &mask1fds);
 	                        cd[fd] = 0;
 	                    } else {
-
 							string response = receive_process(fd);
-							write(fd, response.c_str(), response.size());      
-	
+							write(fd, response.c_str(), response.size());
 	                        cd[fd] = 1;
 	                    }
 	                }
@@ -827,12 +779,8 @@ namespace Cappuccino{
 
 		port_ = 1204;
 		debug_ = false;
-
 		load_argument_value(argc, argv);
-		init_socket();
-		init_signal();
 	}
-
 
 	class FakeRequest : public Request{
 		public:
