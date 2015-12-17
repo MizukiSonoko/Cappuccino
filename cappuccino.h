@@ -59,9 +59,9 @@ namespace Cappuccino{
 	static string document_root_ = "";
 	static string static_directory_ = "public";
 
-	std::list<string> split(const string& str, const string& delim){
+	std::vector<string> split(const string& str, const string& delim){
 
-		std::list<string> result;
+		std::vector<string> result;
 
 	    string::size_type pos = 0;
 
@@ -92,7 +92,7 @@ namespace Cappuccino{
 			    str->replace( pos, replaces.front().first.length(), replaces.front().second );
 			    pos = str->find( replaces.front().first, pos + replaces.front().second.length() );
 			}
-			replaces.pop_front();
+			replaces.pop_back();
 		}
 	}
 
@@ -233,13 +233,13 @@ namespace Cappuccino{
 				auto header_name_val = split(p,": ");
 				if(header_name_val.size() == 2){
 					name = header_name_val.front();
-					header_name_val.pop_front();
+					header_name_val.pop_back();
 					headers_.insert( std::map< string, string>::value_type( name, header_name_val.front()));
 				}else{
 					auto param_name_val = split(p,"=");
 					if(param_name_val.size() == 2){
 						name = param_name_val.front();
-						param_name_val.pop_front();
+						param_name_val.pop_back();
 						params_.insert( std::map< string, string>::value_type( name, url_decode(param_name_val.front())));
 					}
 				}
@@ -681,6 +681,20 @@ namespace Cappuccino{
 			return res;
 		}
 	}
+
+    static std::pair<string, std::map<string,string>> get_url_params(string u){
+    	std::map<string,string> res;
+    	auto url = split(u, "?");
+    	if(url.size()==1) return make_pair( url[0], res);
+    	auto params = split(url[1], "&");
+    	for(auto param : params){
+    		auto kv = split(param, "=");
+    		if(kv.size() == 2)
+	    		res.insert(make_pair( kv[0], kv[1] ));
+    	}
+    	return make_pair( url[0], res);
+    }
+
 #if defined(__APPLE__) || defined(__GNUC__) && __GNUC__ * 10  + __GNUC_MINOR__ >= 49	
 	std::regex re( R"(<\w+>)");
     std::smatch m;
@@ -721,7 +735,7 @@ namespace Cappuccino{
 			    		}else if(v != inp.front()){  			
 	    					correct = false;
 	    				}
-			    		inp.pop_front();
+			    		inp.pop_back();
 			    	}
 			    }
 			    if(correct){
@@ -880,7 +894,7 @@ namespace Cappuccino{
 						    		}else if(v != inp.front()){  			
 				    					correct = false;
 				    				}
-						    		inp.pop_front();
+						    		inp.pop_back();
 						    	}
 						    }
 						    if(correct){
