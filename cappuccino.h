@@ -56,83 +56,108 @@ namespace Cappuccino{
 	
 	using string = std::string;
 
-	static string document_root_ = "";
-	static string static_directory_ = "public";
+	namespace utils{
 
-	std::vector<string> split(const string& str, const string& delim){
+		std::vector<string> split(const string& str, const string& delim){
+			std::vector<string> result;
+		    string::size_type pos = 0;
+		    while(pos != string::npos ){
+		        string::size_type p = str.find(delim, pos);
+		        if(p == string::npos){
+		            result.push_back(str.substr(pos));
+		            break;
+		        }else{
+		            result.push_back(str.substr(pos, p - pos));
+		        }
+		        pos = p + delim.size();
+		    }
+		    return result;
+		}
 
-		std::vector<string> result;
+		int hex2int(char hex){
+			if(hex >= 'A' && hex <= 'F'){
+		        return hex - 'A' + 10;
+		    }else if(hex >= 'a' && hex <= 'f'){
+		        return hex - 'a' + 10;
+		    }else if(hex >= '0' && hex <= '9'){
+		        return hex - '0';
+		    }
+		    return -1;
+		}
 
-	    string::size_type pos = 0;
+		char hex2char(char high,char low){
+		    char res = hex2int(high);
+		    res = res << 4;
+		    return res + hex2int(low);
+		}
 
-	    while(pos != string::npos ){
-	        string::size_type p = str.find(delim, pos);
-	        if(p == string::npos){
-	            result.push_back(str.substr(pos));
-	            break;
-	        }else{
-	            result.push_back(str.substr(pos, p - pos));
-	        }
-	        pos = p + delim.size();
-	    }
-	    return result;
-	}
-
-	void prevent_xss(string* str){
-		// ToDo add more case.
-		std::list<std::pair<string, string>> replaces;
-		replaces.push_back( std::make_pair("<","&lt;"));
-		replaces.push_back( std::make_pair(">","&gt;"));
-		replaces.push_back( std::make_pair("&","&amp;"));
-		replaces.push_back( std::make_pair("\"","&quot"));
-		
-		while(!replaces.empty()){
-			std::string::size_type pos( str->find(replaces.front().first) );
-			while( pos != std::string::npos ){			
-			    str->replace( pos, replaces.front().first.length(), replaces.front().second );
-			    pos = str->find( replaces.front().first, pos + replaces.front().second.length() );
-			}
-			replaces.pop_back();
+		string url_decode(const string& str){
+		    string res = "";
+		    char tmp;
+		    auto len = str.size();
+		    for(auto i = 0; i < len; i++){
+		        if(str[i] == '+'){
+		            res += ' ';
+		        }else if(str[i] == '%' && (i+2) < len){
+		            if((tmp = hex2char((char)str[i+1],(char)str[i+2])) != -1){
+		                i += 2;
+		                res += tmp;
+		            }else{
+		                res += '%';
+		            }
+		        }else{
+		            res += str[i];
+		        }
+		    }
+			prevent_xss(&res);
+		    return res;
 		}
 	}
 
-	int hex2int(char hex){
-		if(hex >= 'A' && hex <= 'F'){
-	        return hex - 'A' + 10;
-	    }else if(hex >= 'a' && hex <= 'f'){
-	        return hex - 'a' + 10;
-	    }else if(hex >= '0' && hex <= '9'){
-	        return hex - '0';
-	    }
-	    return -1;
+	namespace security{
+		void replaces_body(string* str){
+			// ToDo add more case.
+			std::vector<std::pair<string, string>> replaces(4);
+			replaces.push_back( std::make_pair("<","&lt;"));
+			replaces.push_back( std::make_pair(">","&gt;"));
+			replaces.push_back( std::make_pair("&","&amp;"));
+			replaces.push_back( std::make_pair("\"","&quot"));
+			
+			for(auto patterm : replaces){
+				std::string::size_type pos( str->find(patterm) );
+				while( pos != std::string::npos ){			
+				    str->replace( pos, patterm.first.length(), patterm.second );
+				    pos = str->find( patterm.first, pos + patterm.second.length() );
+				}
+				replaces.pop_back();
+			}
+		}		
 	}
 
-	char hex2char(char high,char low){
-	    char res = hex2int(high);
-	    res = res << 4;
-	    return res + hex2int(low);
-	}
+	namespace signal{
+		static void signal_handler(int SignalName){
+			Logger::i("\nserver terminated!\n");		
+			close(sessionfd_);
+			close(sockfd_);
+			exit(0);
+			return;
+		}
 
-	string url_decode(const string& str){
-	    string res = "";
-	    char tmp;
-	    auto len = str.size();
-	    for(auto i = 0; i < len; i++){
-	        if(str[i] == '+'){
-	            res += ' ';
-	        }else if(str[i] == '%' && (i+2) < len){
-	            if((tmp = hex2char((char)str[i+1],(char)str[i+2])) != -1){
-	                i += 2;
-	                res += tmp;
-	            }else{
-	                res += '%';
-	            }
-	        }else{
-	            res += str[i];
-	        }
-	    }
-		prevent_xss(&res);
-	    return res;
+		static void signal_handler_chld(int SignalName){
+			while(waitpid(-1,NULL,WNOHANG)>0){}
+	        signal(SIGCHLD, Cappuccino::signal_handler_chld);
+		}
+
+		static void init_signal(){
+			if (signal(SIGINT, Cappuccino::signal_handler) == SIG_ERR) {
+				Logger::e("signal setting error");
+				exit(1);
+			}
+			if (signal(SIGCHLD, Cappuccino::signal_handler_chld) == SIG_ERR) {
+				Logger::e("signal setting error");
+				exit(1);
+			}
+		}
 	}
 
 	class Request{
@@ -149,7 +174,6 @@ namespace Cappuccino{
 	  private:
 		std::map<string,string> headers_;
 		std::map<string,string> params_;
-		std::map<string,string> url_params_;
 
 		string url_;
 		string protocol_;
@@ -170,7 +194,6 @@ namespace Cappuccino{
 				method_ = OPTION;
 			}
 		}
-
 	  public:
 
 	  	string protocol() const{
@@ -187,17 +210,6 @@ namespace Cappuccino{
 		}		
 		std::map<string,string> params() const{
 			return params_;
-		}
-		std::map<string,string> url_params() const{
-			return url_params_;
-		}
-
-		string get_url_param(const string& key) const{
-			auto pos(url_params_.find(key));
-			if( pos != headers_.end() ){
-				return pos->second;
-			}
-			return "Invalid param name";
 		}
 
 		string get_header_param(const string& key) const{
@@ -216,11 +228,8 @@ namespace Cappuccino{
 			return "Invalid param name";
 		}
 
-		void add_url_param(const string& key,const string& val){			
-			url_params_.insert( std::map< string, string>::value_type( key, val));
-		}
-
-		Request(const string& method,const string& url,const string& protocol,const string& request){
+		Request(){
+			/*
 			set_method(method);
 			url_ = url;
 			protocol_ = protocol;
@@ -244,9 +253,15 @@ namespace Cappuccino{
 					}
 				}
 			}
+			*/
+		}
+
+		Request* factory(string request){
+
 		}
 	};
 
+// [WIP]
 	class Response{
 	  public:
 		enum Response_Type{
@@ -545,37 +560,32 @@ namespace Cappuccino{
 	  		return "html/text";
 	  	}	
 	};
+// [WIP]
 
-
-	std::map<string, std::function<Response(Request*)>> routes_;
 
 	static int port_ = 1204;
-	static bool debug_ = false;
 	static int sockfd_ = 0;
 	static int sessionfd_ = 0;
     fd_set mask1fds, mask2fds;
+
+	static string view_root_ = "";
+	static string static_directory_ = "public";
+	std::map<string, std::function<Response(Request*)>> routes_;
+	std::map<string, std::function<Response(Request*)>> static_routes_;
 
 	static void add_route(const string& route,const std::function<Response(Request*)>& function){
 		routes_.insert( std::map<string,std::function<Response(Request*)>>::value_type(route, function));
 	}
 
-	static void document_root(const string& path){
-		document_root_ = path;
+	static void static_root(const string& path){
+		static_root_ = path;
 	}
 
-	static void static_directory(const string& directory_name){
-		static_directory_ = directory_name;
-		add_route(
-			"/" + static_directory_ + "/<dirname>/<filename>", 
-			[&](Cappuccino::Request* req) -> Cappuccino::Response{
-				auto response = Cappuccino::Response(req->protocol(), Cappuccino::Response::FILE);
-				response.set_filename(req->url());
-				return response;
-			}
-		);
+	static void view_root(const string& path){
+		view_root_ = path;
 	}
 
-	static void load_argument_value(int argc, char *argv[]){
+	static void set_argument_value(int argc, char *argv[]){
 		char result;
 		while((result = getopt(argc,argv,"dp:")) != -1){
 			switch(result){
@@ -597,9 +607,7 @@ namespace Cappuccino{
 	}
 
 	static void init_socket(){
-
 	    struct sockaddr_in server;
-
 		if ((sockfd_ = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
 			Logger::e("socket create error");
 			exit(EXIT_FAILURE);
@@ -612,7 +620,6 @@ namespace Cappuccino{
 		char opt = 1;
 		setsockopt(sockfd_, SOL_SOCKET, SO_REUSEADDR, (char *)&opt, sizeof(opt));
 
-		/* Debug !!! */
 		int temp = 1;
   		if(setsockopt(sockfd_, SOL_SOCKET, SO_REUSEADDR,
 	            &temp, sizeof(temp))){
@@ -632,31 +639,6 @@ namespace Cappuccino{
 	    FD_ZERO(&mask1fds);
 	    FD_SET(sockfd_, &mask1fds);
 	}
-
-	static void signal_handler(int SignalName){
-		Logger::i("server terminated");		
-		close(sessionfd_);
-		close(sockfd_);
-		exit(0);
-		return;
-	}
-
-	static void signal_handler_chld(int SignalName){
-		while(waitpid(-1,NULL,WNOHANG)>0){}
-        signal(SIGCHLD, Cappuccino::signal_handler_chld);
-	}
-
-	static void init_signal(){
-		if (signal(SIGINT, Cappuccino::signal_handler) == SIG_ERR) {
-			Logger::e("signal setting error");
-			exit(1);
-		}
-		if (signal(SIGCHLD, Cappuccino::signal_handler_chld) == SIG_ERR) {
-			Logger::e("signal setting error");
-			exit(1);
-		}
-	}
-
 
 	namespace Regex{
 		std::vector<string> findParent(string text){
@@ -700,8 +682,8 @@ namespace Cappuccino{
     std::smatch m;
 #endif    
 	// Todo more short	
-	static Response create_response(char* method, char* url, char* protocol,char* req){
-		Request* request = new Request( string(method), string(url), string(protocol), string(req));
+	static Response create_response(char* req){
+		Request* request = new Request.factory(string(req));
 		
 	    std::vector<string> reg;
 
