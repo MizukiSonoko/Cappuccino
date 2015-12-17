@@ -56,6 +56,31 @@ namespace Cappuccino{
 	
 	using string = std::string;
 
+	static int port_ = 1204;
+	static int sockfd_ = 0;
+	static int sessionfd_ = 0;
+    fd_set mask1fds, mask2fds;
+
+	namespace security{
+		void replaces_body(string* str){
+			// ToDo add more case.
+			std::vector<std::pair<string, string>> replaces(4);
+			replaces.push_back( std::make_pair("<","&lt;"));
+			replaces.push_back( std::make_pair(">","&gt;"));
+			replaces.push_back( std::make_pair("&","&amp;"));
+			replaces.push_back( std::make_pair("\"","&quot"));
+			
+			for(auto patterm : replaces){
+				std::string::size_type pos( str->find(patterm.first) );
+				while( pos != std::string::npos ){			
+				    str->replace( pos, patterm.first.length(), patterm.second );
+				    pos = str->find( patterm.first, pos + patterm.second.length() );
+				}
+				replaces.pop_back();
+			}
+		}		
+	}
+
 	namespace utils{
 
 		std::vector<string> split(const string& str, const string& delim){
@@ -109,32 +134,70 @@ namespace Cappuccino{
 		            res += str[i];
 		        }
 		    }
-			prevent_xss(&res);
+			security::replaces_body(&res);
 		    return res;
 		}
-	}
 
-	namespace security{
-		void replaces_body(string* str){
-			// ToDo add more case.
-			std::vector<std::pair<string, string>> replaces(4);
-			replaces.push_back( std::make_pair("<","&lt;"));
-			replaces.push_back( std::make_pair(">","&gt;"));
-			replaces.push_back( std::make_pair("&","&amp;"));
-			replaces.push_back( std::make_pair("\"","&quot"));
-			
-			for(auto patterm : replaces){
-				std::string::size_type pos( str->find(patterm) );
-				while( pos != std::string::npos ){			
-				    str->replace( pos, patterm.first.length(), patterm.second );
-				    pos = str->find( patterm.first, pos + patterm.second.length() );
-				}
-				replaces.pop_back();
+
+		static std::vector<char> fileInput(const string& filename){
+			std::ifstream ifs( filename, std::ios::in | std::ios::binary);
+			if(ifs.fail()){
+				throw std::runtime_error("No such file or directory \""+ filename +"\"\n");
 			}
-		}		
+
+			ifs.seekg( 0, std::ios::end);
+			auto pos = ifs.tellg();
+			ifs.seekg( 0, std::ios::beg);
+
+			std::vector<char> buf(pos);
+			ifs.read(buf.data(), pos);
+			return buf;
+		}
+
+		static std::pair<string,string> file2str(const string& filename){	
+			try{
+		        auto result = std::async( std::launch::async, fileInput, filename);
+		        auto buf = result.get();
+
+		        string response(buf.begin(), buf.end());
+
+#if !defined(__APPLE__) && defined(__GNUC__) && __GNUC__ * 10  + __GNUC_MINOR__ < 49
+				if( response[0] == '\xFF' && response[1] == '\xD8'){
+					return make_pair(response, "image/jpg");
+				}else if( response[0] == '\x89' && response[1] == 'P' && response[2] == 'N' && response[3] == 'G'){
+					return make_pair(response, "image/png");
+				}else if( response[0] == 'G' && response[1] == 'I' && response[2] == 'F' && response[3] == '8' && (response[4] == '7' || response[4] == '9') && response[2] == 'a'){
+					return make_pair(response, "image/gif");
+				}else{
+					replace_all(&response);
+					return std::make_pair(response, "text/html");
+				}
+#else
+				std::smatch m;
+				std::regex rejpg( R"(^\xFF\xD8)");
+				std::regex repng( R"(^\x89PNG)");
+				std::regex regif( R"(^GIF8[79]a)");
+
+				if(std::regex_search( response, m, rejpg )){
+					return make_pair(response, "image/jpg");
+			    }else if(std::regex_search( response, m, repng )){
+					return make_pair(response, "image/png");
+			    }else if(std::regex_search( response, m, regif )){
+					return make_pair(response, "image/gif");
+				}else{
+					return std::make_pair(response, "text/html");
+				}
+#endif
+
+		    } catch ( std::exception & exception ){
+				Logger::e(exception.what());
+				return std::make_pair("", "text/html");	
+            }            
+		}
+
 	}
 
-	namespace signal{
+	namespace signal_utils{
 		static void signal_handler(int SignalName){
 			Logger::i("\nserver terminated!\n");		
 			close(sessionfd_);
@@ -143,17 +206,17 @@ namespace Cappuccino{
 			return;
 		}
 
-		static void signal_handler_chld(int SignalName){
+		static void signal_handler_child(int SignalName){
 			while(waitpid(-1,NULL,WNOHANG)>0){}
-	        signal(SIGCHLD, Cappuccino::signal_handler_chld);
+	        signal(SIGCHLD, Cappuccino::signal_utils::signal_handler_child);
 		}
 
 		static void init_signal(){
-			if (signal(SIGINT, Cappuccino::signal_handler) == SIG_ERR) {
+			if (signal(SIGINT, Cappuccino::signal_utils::signal_handler) == SIG_ERR) {
 				Logger::e("signal setting error");
 				exit(1);
 			}
-			if (signal(SIGCHLD, Cappuccino::signal_handler_chld) == SIG_ERR) {
+			if (signal(SIGCHLD, Cappuccino::signal_utils::signal_handler_child) == SIG_ERR) {
 				Logger::e("signal setting error");
 				exit(1);
 			}
@@ -195,7 +258,7 @@ namespace Cappuccino{
 			}
 		}
 
-		void set_url(const strig& u){
+		void set_url(const string& u){
 			url_ = u;
 		}
 
@@ -236,42 +299,42 @@ namespace Cappuccino{
 			return "Invalid param name";
 		}
 
-		Request() : method_(GET), url_("/"), protocol_("HTTP/1.1"){}
+		Request() : url_("/"), protocol_("HTTP/1.1"), method_(GET){}
 
-		unique_ptr<Request> factory(string request){
-			auto res = unique_ptr<Request>(new Request());
+		static std::unique_ptr<Request> factory(string request){
+			auto res = std::unique_ptr<Request>(new Request());
 
 			auto lines = utils::split(request,"\n");			
 			auto line_size = lines.size();
 			if(line_size == 1) return res;
 
 			auto request_head = utils::split(lines[0]," ");		
-			res->set_method(request_head[0));
+			res->set_method(request_head[0]);
 			// get url paramaters.
 			auto url_params = utils::split(request_head[1],"?");
-			req->set_url(url_params[0]);
+			res->set_url(url_params[0]);
 
-			req->set_protocol(request_head[2]);
+			res->set_protocol(request_head[2]);
 
-			for(int i = 1;i < size; i++){
-				auto key_val = utils::split(p,": ");
+			for(int i = 1;i < line_size; i++){
+				auto key_val = utils::split(lines[i],": ");
 				if(key_val.size() == 2){
 					res->headers_.insert( std::map< string, string>::value_type( key_val[0], key_val[1]));
 				}else{
 					// POST paramaters
-					auto param_key_val = utils::split(p,"=");
-					if(param_name_val.size() == 2){
-						res->params_.insert( std::map< string, string>::value_type( param_name_val[0], utils::url_decode(param_name_val[1])));
+					auto param_key_val = utils::split(lines[i],"=");
+					if(param_key_val.size() == 2){
+						res->params_.insert( std::map< string, string>::value_type( param_key_val[0], utils::url_decode(param_key_val[1])));
 					}
 				}
 			}
-			if(url_params == 2){
+			if(url_params.size() == 2){
 				// GET paramaters
 				auto params = utils::split(url_params[1],"&");
 				for(auto param : params){
-					auto param_key_val = utils::split(,"=");
-					if(param_name_val.size() == 2){
-						res->params_.insert( std::map< string, string>::value_type( param_name_val[0], utils::url_decode(param_name_val[1])));
+					auto param_key_val = utils::split( param,"=");
+					if(param_key_val.size() == 2){
+						res->params_.insert( std::map< string, string>::value_type( param_key_val[0], utils::url_decode(param_key_val[1])));
 					}
 				}
 			}
@@ -282,18 +345,12 @@ namespace Cappuccino{
 // [WIP]
 	class Response{
 	  public:
-		enum Response_Type{
-			TEXT,
-			FILE
-		};
 
 	  protected:
 		string response_;
 		string filename_;
-		bool is_ready_;
 
 		string protocol_;
-		Response_Type response_type_;
 		int status_;
 
 		std::map<string,string> replace_values_;
@@ -301,24 +358,9 @@ namespace Cappuccino{
 
 	  public:
 
-	  	void replace_all(string* response) const{
-			for(auto value = replace_values_.begin(); value != replace_values_.end(); value++){
-			    std::string::size_type pos(response->find(value->first));
-			    while( pos != std::string::npos ){
-			        response->replace( pos, value->first.length(), value->second );
-			        pos = response->find( value->first, pos + value->second.length() );
-			    }
-			}
-	  	}
-
-		explicit Response(const string& protocol,const Response_Type& response_type):			
-			protocol_(protocol),
-			response_type_(response_type),
-			status_(200)
-			{
-				add_header_value("Content-type", "text/html");
-				add_replace_value("@public", "/" + static_directory_);
-			}
+		explicit Response():			
+			protocol_("1.1"),
+			status_(200){}
 
 		void add_replace_value(string key, string val){
 			replace_values_.insert( std::map<string, string>::value_type( key, val));
@@ -332,102 +374,9 @@ namespace Cappuccino{
 			return status_;
 		}
 
-		string status_str() const{
-			switch(status_){
-				case 200: return "OK";
-				case 404: return "NotFound";
-
-				/* ToDo: Add more status*/
-				default: return "OK";
-			}
-		}
-		void add_header_value(const string& key, const string& val){
-			headers_.insert( std::map<string, string>::value_type( key, val));
-		}
-
-		void set_filename(const std::string& filename){
-			filename_ = filename;	
-			std::pair<string, string> response = file2str();
-			add_header_value("Content-type", response.second);
-			response_ = response.first;
-		}
-
-		void set_text(const std::string& text){
-			response_ = text;
-		}
-
-		string header() const{
-			string str = protocol_ + " " + std::to_string(status_) + " "+ status_str() + "\n";
-			for(auto value = headers_.begin(); value != headers_.end(); value++){
-				str += value->first + ":" + value->second + "\n";
-			}
-			str += "\n";
-			return str;
-		}
-
-		static std::vector<char> fileInput(string aFilename){
-			string filename = document_root_ + "/" + aFilename;
-			std::ifstream ifs( filename, std::ios::in | std::ios::binary);
-			if(ifs.fail()){
-				auto static_file_path = aFilename.substr(1, aFilename.size()-1);
-			    ifs.open(static_file_path, std::ios::in | std::ios::binary);
-				if(ifs.fail()){
-					throw std::runtime_error("No such file or directory \""+ filename +"\" and "+static_file_path+"\"\n");
-				}
-			}
-
-			ifs.seekg( 0, std::ios::end);
-			auto pos = ifs.tellg();
-			ifs.seekg( 0, std::ios::beg);
-
-			std::vector<char> buf(pos);
-			ifs.read(buf.data(), pos);
-			return buf;
-		}
-
-		std::pair<string,string> file2str() const{	
-			try{
-		        auto result = std::async( std::launch::async, fileInput, filename_);
-		        auto buf = result.get();
-
-		        string response(buf.begin(), buf.end());
-
-#if !defined(__APPLE__) && defined(__GNUC__) && __GNUC__ * 10  + __GNUC_MINOR__ < 49
-				if( response[0] == '\xFF' && response[1] == '\xD8'){
-					return make_pair(response, "image/jpg");
-				}else if( response[0] == '\x89' && response[1] == 'P' && response[2] == 'N' && response[3] == 'G'){
-					return make_pair(response, "image/png");
-				}else if( response[0] == 'G' && response[1] == 'I' && response[2] == 'F' && response[3] == '8' && (response[4] == '7' || response[4] == '9') && response[2] == 'a'){
-					return make_pair(response, "image/gif");
-				}else{
-					replace_all(&response);
-					return std::make_pair(response, "text/html");
-				}
-#else
-				std::smatch m;
-				std::regex rejpg( R"(^\xFF\xD8)");
-				std::regex repng( R"(^\x89PNG)");
-				std::regex regif( R"(^GIF8[79]a)");
-
-				if(std::regex_search( response, m, rejpg )){
-					return make_pair(response, "image/jpg");
-			    }else if(std::regex_search( response, m, repng )){
-					return make_pair(response, "image/png");
-			    }else if(std::regex_search( response, m, regif )){
-					return make_pair(response, "image/gif");
-				}else{
-					replace_all(&response);
-					return std::make_pair(response, "text/html");
-				}
-#endif
-
-		    } catch ( std::exception & exception ){
-				Logger::e(exception.what());
-				return std::make_pair("", "text/html");	
-            }            
-		}
 		operator string() const{
-			return header() + response_;
+			// [WIP]
+			return "";
 		}
 	};
 
@@ -484,7 +433,8 @@ namespace Cappuccino{
 		}
 
 		static std::vector<char> fileInput(string aFilename){
-			string filename = document_root_ + "/" + aFilename;
+			//[WIP]
+			string filename = aFilename;
 			std::ifstream ifs( filename, std::ios::in | std::ios::binary);
 			if(ifs.fail()){
 				auto static_file_path = aFilename.substr(1, aFilename.size()-1);
@@ -566,28 +516,11 @@ namespace Cappuccino{
 		}
 	};
 
-	class NotFound : public Response{
-	  public:
-	  	NotFound(string protocol):
-	  		Response(protocol, Response_Type::TEXT)
-  		{
-  			status_ = 404;
-  			response_ = "<html>\n<head>\n<title>Not found</title>\n</head>\n<body>\n<h1>Page not found! </h1>\n</body>\n</html>";
-  		}
-	  	string content_type(){
-	  		return "html/text";
-	  	}	
-	};
 // [WIP]
 
 
-	static int port_ = 1204;
-	static int sockfd_ = 0;
-	static int sessionfd_ = 0;
-    fd_set mask1fds, mask2fds;
-
 	static string view_root_ = "";
-	static string static_directory_ = "public";
+	static string static_root_ = "public";
 	std::map<string, std::function<Response(Request*)>> routes_;
 	std::map<string, std::function<Response(Request*)>> static_routes_;
 
@@ -595,11 +528,11 @@ namespace Cappuccino{
 		routes_.insert( std::map<string,std::function<Response(Request*)>>::value_type(route, function));
 	}
 
-	static void static_root(const string& path){
+	static void add_static_root(const string& path){
 		static_root_ = path;
 	}
 
-	static void view_root(const string& path){
+	static void add_view_root(const string& path){
 		view_root_ = path;
 	}
 
@@ -608,18 +541,17 @@ namespace Cappuccino{
 		while((result = getopt(argc,argv,"dp:")) != -1){
 			switch(result){
 			case 'd':
-				debug_ = true;
+				Logger::debug_ = true;
 				break;
 			case 'p':
 				port_ = atoi(optarg);
 				break;
 			}
 		}
-		Logger::debug_ = debug_;
-		if(debug_){
-			Logger::d("mode: debug");
+		if(Logger::debug_){
+			Logger::i("mode: debug");
 		}else{			
-			Logger::d("mode: product");
+			Logger::i("mode: product");
 		}
 		Logger::d("port:" + std::to_string(port_));
 	}
@@ -688,10 +620,9 @@ namespace Cappuccino{
 #endif    
 
 	static Response create_response(char* req){
-		Request* request = new Request.factory(string(req));
+		std::unique_ptr<Request> request = Request().factory(string(req));
 		// WIP
-		Response response = NotFound(request->protocol());
-		return response;
+		return Response();
 	}
 
 	static string receive_process(int sessionfd){
@@ -705,6 +636,7 @@ namespace Cappuccino{
 			exit(EXIT_FAILURE);
 		}
 		bool isbody = false;
+		do{
 			if (!isbody && strstr(buf, "\r\n")) {
 				isbody = true;
 			}
@@ -722,7 +654,7 @@ namespace Cappuccino{
 
 	static void run(){
 		init_socket();
-		init_signal();
+		signal_utils::init_signal();
 		Logger::i(" * Running on http://localhost:" + std::to_string(port_) + "/");
 
 	    int cd[FD_SETSIZE];
@@ -776,104 +708,8 @@ namespace Cappuccino{
 	}
 
 	static void Cappuccino(int argc, char *argv[]) {
-
 		port_ = 1204;
-		debug_ = false;
-		load_argument_value(argc, argv);
-	}
-
-	class FakeRequest : public Request{
-		public:
-			FakeRequest(string method,string url,string protocol = "HTTP/1.1"):
-				Request( method, url, protocol, method + " " + url + " " + protocol){}
-	};
-
-	class Application{
-		public:
-			string access(string route, FakeRequest* req){
-				if(routes_.find(route) != routes_.end()){
-					return routes_[route](req);
-				}else{
-				    std::vector<string> reg;
-				    bool correct = true;
-					for(auto url = routes_.begin(), end = routes_.end(); url != end; ++url){
-						correct = true;
-					    if(url->first.find("<", 0) != string::npos){
-
-#if !defined(__APPLE__) && defined(__GNUC__) && __GNUC__ * 10  + __GNUC_MINOR__ < 49
-
-							reg = Regex::findParent(url->first);
-
-#else
-							auto iter = url->first.cbegin();
-						    while ( std::regex_search( iter, url->first.cend(), m, re )){
-						        reg.push_back(m.str());
-						        iter = m[0].second;
-						    }
-#endif
-
-						    if(reg.size() != 0){
-						    	auto val = split(url->first, "/");
-						    	auto inp = split(req->url(), "/");
-
-						    	if(val.size() != inp.size()) continue;
-
-						    	for(auto v : val){
-						    		if(find(reg.begin(), reg.end(), v) != reg.end() && v.size() > 2){
-						    			req->add_url_param( v.substr(1, v.size() - 2), url_decode(inp.front()));   
-						    		}else if(v != inp.front()){  			
-				    					correct = false;
-				    				}
-						    		inp.pop_back();
-						    	}
-						    }
-						    if(correct){
-								Response result = url->second(req);
-								delete req;
-								return result;			    	
-						    }
-						}else{
-							if(url->first == req->url()){
-								Response result = routes_[req->url()](req);
-								delete req;
-								return result;
-							}
-						}
-					}
-					return NotFound(req->protocol());
-				}
-			}
-	};
-
-
-	static void realTimeRun(){
-
-	}
-
-
-	std::map<string, std::function<bool(Application*)>> tests_;
-	static void add_spec(const string name, const std::function<bool(Application*)>& spec){
-		tests_.insert( std::map<string,std::function<bool(Application*)>>::value_type( name, spec));
-	}
-	static void testRun(){
-
-		Application* app = new Application();
-		bool allOk = true;
-		for(auto spec = tests_.begin(), end = tests_.end(); spec != end; ++spec){
-			if(spec->second(app)){
-				Logger::safe(" -> Passed");		
-			}else{
-				Logger::e(" -> Error");				
-				allOk = false;
-			}
-		}
-		Logger::i("-------------");
-		if(allOk){
-			Logger::safe("All test passed!");		
-		}else{
-			Logger::e("It has Error");
-		}
-		delete app;
+		set_argument_value(argc, argv);
 	}
 
 };
