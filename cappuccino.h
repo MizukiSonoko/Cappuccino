@@ -380,36 +380,38 @@ namespace Cappuccino{
 		}
 	};
 
-	class Headers{
-		int status_code_;
-		string message_;
-		string version_;
-		std::map<string, string> params_;
-	  public:
-	  	void set_status_code(int code){
-			status_code_ = code;	  		
-	  	}
-		void set_message(string msg){
-			message_ = msg;
-		}
-		void set_version(string ver){
-			version_ = ver;
-		}
-		void add_param(string key, string val){
-			params_.insert( make_pair(key,val));
-		}
-
-		operator string() const{			
-			string str = "HTTP/" + version_ + " " + std::to_string(status_code_) + " "+ message_+ "\n";
-			for(auto value = params_.begin(); value != params_.end(); value++){
-				str += value->first + ":" + value->second + "\n";
-			}
-			str += "\n";
-			return "";
-		}
-	};
-
+	
 	class ResponseBuilder{
+
+		class Headers{
+			int status_code_;
+			string message_;
+			string version_;
+			std::map<string, string> params_;
+		  public:
+		  	void set_status_code(int code){
+				status_code_ = code;	  		
+		  	}
+			void set_message(string msg){
+				message_ = msg;
+			}
+			void set_version(string ver){
+				version_ = ver;
+			}
+			void add_param(string key, string val){
+				params_.insert( make_pair(key,val));
+			}
+
+			operator string() const{			
+				string str = "HTTP/" + version_ + " " + std::to_string(status_code_) + " "+ message_ + "\n";
+				for(auto value = params_.begin(); value != params_.end(); value++){
+					str += value->first + ":" + value->second + "\n";
+				}
+				str += "\n";
+				return "";
+			}
+		};
+
 		Headers* headers_;
 		string body_;
 		string filename_;
@@ -518,7 +520,6 @@ namespace Cappuccino{
 
 // [WIP]
 
-
 	static string view_root_ = "";
 	static string static_root_ = "public";
 	std::map<string, std::function<Response(Request*)>> routes_;
@@ -621,6 +622,11 @@ namespace Cappuccino{
 
 	static Response create_response(char* req){
 		std::unique_ptr<Request> request = Request().factory(string(req));
+		for(auto route : routes_){
+			if(route == request.url()){
+				return route[request.url()](request);
+			}
+		}
 		// WIP
 		return Response();
 	}
@@ -655,7 +661,7 @@ namespace Cappuccino{
 	static void run(){
 		init_socket();
 		signal_utils::init_signal();
-		Logger::i(" * Running on http://localhost:" + std::to_string(port_) + "/");
+		Logger::i("Running on http://localhost:" + std::to_string(port_) + "/");
 
 	    int cd[FD_SETSIZE];
 		struct sockaddr_in client;
