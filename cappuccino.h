@@ -67,6 +67,7 @@ namespace Cappuccino{
 	static string static_root_ = "public";
 
 	namespace security{
+
 		void replaces_body(string* str){
 			// ToDo add more case.
 			std::vector<std::pair<string, string>> replaces(4);
@@ -76,14 +77,16 @@ namespace Cappuccino{
 			replaces.push_back( std::make_pair("\"","&quot"));
 
 			std::string::size_type pos;
-			for(auto patterm : replaces){
-				pos = str->find(patterm.first);
+			for(auto it = replaces.begin(); it != replaces.end(); ++it){
+				pos = str->find(it->first);
 				while( pos != std::string::npos ){
-				    str->replace( pos, patterm.first.length(), patterm.second );
-				    pos = str->find( patterm.first, pos + patterm.second.length() );
+				    str->replace( pos, it->first.length(), it->second );
+				    pos = str->find( it->first, pos + it->second.length() );
+
+				    if(pos == 0) break;
 				}
-			}
-		}		
+		    }
+		}
 	}
 
 	namespace utils{
@@ -449,6 +452,7 @@ namespace Cappuccino{
 			for(auto it = replaces_->begin(); it != replaces_->end(); ++it){
 				pos = str->find(it->first);
 				while( pos != std::string::npos ){
+					security::replaces_body(&it->second);					
 				    str->replace( pos, it->first.length(), it->second );
 				    pos = str->find( it->first, pos + it->second.length() );
 				}
