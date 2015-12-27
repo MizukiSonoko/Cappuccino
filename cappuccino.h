@@ -381,17 +381,20 @@ namespace Cappuccino{
 			void set_version(string ver){
 				version_ = ver;
 			}
+			// Forbidden override :+1:
 			void add_param(string key, string val){
-				params_.insert( make_pair(key,val));
+				auto pos(get_params_.find(key));
+				if( pos != get_params_.end() ){
+					params_.insert( make_pair(key,val));				
+				}
 			}
 
 			operator string() const{			
 				string str = "HTTP/" + version_ + " " + std::to_string(status_code_) + " "+ message_ + "\n";
 				for(auto value = params_.begin(); value != params_.end(); value++){
-					str += value->first + ":" + value->second + "\n";
+					str += value->first + ": " + value->second + "\n";
 				}
 				str += "\n";
-				Logger::i(str);
 				return "";
 			}
 		};
@@ -403,11 +406,18 @@ namespace Cappuccino{
 
 	  public:
 
-	  	ResponseBuilder():
+	  	ResponseBuilder(Request* request):
 	  		headers_(new Headers()),
 	  		body_(""),
 	  		filename_("")
-  		{}
+  		{
+  			http_version(request->protocol());
+  		}
+
+		ResponseBuilder& header_param(string name,string value){
+			headers_->add_param( name, value);
+		    return *this;
+		}
 
 		ResponseBuilder& status(int code, string msg){
 		    headers_->set_status_code(code);
@@ -673,7 +683,7 @@ namespace Cappuccino{
 			static_routes_.insert( std::map<string,std::function<Response(Request*)>>::value_type(
 				"/" + directory, 
 					[directory](Request* request) -> Response{
-						return Cappuccino::ResponseBuilder()
+						return Cappuccino::ResponseBuilder(request)
 							.status(200,"OK")
 							.file(directory)
 							.build();
