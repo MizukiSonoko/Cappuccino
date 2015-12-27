@@ -74,14 +74,14 @@ namespace Cappuccino{
 			replaces.push_back( std::make_pair(">","&gt;"));
 			replaces.push_back( std::make_pair("&","&amp;"));
 			replaces.push_back( std::make_pair("\"","&quot"));
-			
+
+			std::string::size_type pos;
 			for(auto patterm : replaces){
-				std::string::size_type pos( str->find(patterm.first) );
-				while( pos != std::string::npos ){			
+				pos = str->find(patterm.first);
+				while( pos != std::string::npos ){
 				    str->replace( pos, patterm.first.length(), patterm.second );
 				    pos = str->find( patterm.first, pos + patterm.second.length() );
 				}
-				replaces.pop_back();
 			}
 		}		
 	}
@@ -139,10 +139,8 @@ namespace Cappuccino{
 		            res += str[i];
 		        }
 		    }
-			security::replaces_body(&res);
 		    return res;
 		}
-
 
 		static std::vector<char> fileInput(const string& filename){
 			std::ifstream ifs( filename, std::ios::in | std::ios::binary);
@@ -322,7 +320,8 @@ namespace Cappuccino{
 			auto request_head = utils::split(lines[0]," ");		
 			res->set_method(request_head[0]);
 			// get url paramaters.
-			auto url_params = utils::split(request_head[1],"?");
+			auto url_params = utils::split(request_head[1],"?");	
+
 			res->set_url(url_params[0]);
 
 			res->set_protocol(request_head[2]);
@@ -406,7 +405,7 @@ namespace Cappuccino{
 		std::unique_ptr<Headers> headers_;
 		string body_;
 		string filename_;
-		std::map<string, string>* replaces_;
+		std::unique_ptr<std::map<string, string>> replaces_;
 
 	  public:
 
@@ -429,6 +428,11 @@ namespace Cappuccino{
 		    return *this;
 		}
 
+		ResponseBuilder& replaces(string key, string value){
+		    replaces_->insert( make_pair(key, value) );
+		    return *this;
+		}
+
 		ResponseBuilder& http_version(string val){
 		    headers_->set_version(val);
 		    return *this;
@@ -437,6 +441,17 @@ namespace Cappuccino{
 		ResponseBuilder& param(string key,string val){
 		    headers_->add_param( key, val);
 		    return *this;			
+		}
+
+		void replaces(string* str) const{
+			std::string::size_type pos;
+			for(auto it = replaces_->begin(); it != replaces_->end(); ++it){
+				pos = str->find(it->first);
+				while( pos != std::string::npos ){
+				    str->replace( pos, it->first.length(), it->second );
+				    pos = str->find( it->first, pos + it->second.length() );
+				}
+		    }
 		}
 
 		static std::vector<char> fileInput(string aFilename){
@@ -472,6 +487,7 @@ namespace Cappuccino{
 				}else if( response[0] == 'G' && response[1] == 'I' && response[2] == 'F' && response[3] == '8' && (response[4] == '7' || response[4] == '9') && response[2] == 'a'){
 					return make_pair(response, "image/gif");
 				}else{
+					replaces(&response);
 					return std::make_pair(response, "text/html");
 				}
 #else
@@ -487,6 +503,7 @@ namespace Cappuccino{
 			    }else if(std::regex_search( response, m, regif )){
 					return make_pair(response, "image/gif");
 				}else{
+					replaces(&response);
 					return std::make_pair(response, "text/html");
 				}
 #endif
