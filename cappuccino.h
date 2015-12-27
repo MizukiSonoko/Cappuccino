@@ -536,9 +536,11 @@ namespace Cappuccino{
 			if(filename_ != ""){
 				auto body_pair = file2str();
 				headers_->add_param( "Content-type", body_pair.second);
+				headers_->add_param( "Content-Length", std::to_string(body_pair.first.size()));
 				return Response(string(*headers_) + body_pair.first);
 			}else{				
 				headers_->add_param( "Content-type", "text/html");
+				headers_->add_param( "Content-Length", std::to_string(body_.size()));
 				return Response(string(*headers_) + body_);
 			}
 		}
