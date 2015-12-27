@@ -236,7 +236,8 @@ namespace Cappuccino{
 
 	  private:
 		std::map<string,string> headers_;
-		std::map<string,string> params_;
+		std::map<string,string> get_params_;
+		std::map<string,string> post_params_;
 
 		string url_;
 		string protocol_;
@@ -265,8 +266,8 @@ namespace Cappuccino{
 		void set_protocol(const string& p){
 			protocol_ = p;
 		}
-	  public:
 
+	  public:
 	  	string protocol() const{
 	  		return protocol_;
 	  	}
@@ -279,20 +280,25 @@ namespace Cappuccino{
 		std::map<string,string> headers() const{
 			return headers_;
 		}		
-		std::map<string,string> params() const{
-			return params_;
-		}
 
-		string get_header_param(const string& key) const{
-			auto pos(headers_.find(key));
-			if( pos != headers_.end() ){
+		string post(const string& key) const{
+			auto pos(post_params_.find(key));
+			if( pos != post_params_.end() ){
 				return pos->second;
 			}
 			return "Invalid param name";
 		}
 
-		string get_param(const string& key) const{
-			auto pos(params_.find(key));
+		string get(const string& key) const{
+			auto pos(get_params_.find(key));
+			if( pos != get_params_.end() ){
+				return pos->second;
+			}
+			return "Invalid param name";
+		}
+
+		string header(const string& key) const{
+			auto pos(headers_.find(key));
 			if( pos != headers_.end() ){
 				return pos->second;
 			}
