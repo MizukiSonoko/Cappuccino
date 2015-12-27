@@ -174,7 +174,7 @@ namespace Cappuccino{
 				}else if( response[0] == 'G' && response[1] == 'I' && response[2] == 'F' && response[3] == '8' && (response[4] == '7' || response[4] == '9') && response[2] == 'a'){
 					return make_pair(response, "image/gif");
 				}else{
-					replace_all(&response);
+					security::replaces_body(&response);
 					return std::make_pair(response, "text/html");
 				}
 #else
