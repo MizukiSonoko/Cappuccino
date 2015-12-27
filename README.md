@@ -5,6 +5,11 @@ Tiny HTTP server library.
 
 [Demo web page](http://cappuccino.mizuki.io/)
 
+# version
+```
+1.2
+```
+
 # Micro sample
 ```shell
 $ git clone https://github.com/MizukiSonoko/Cappuccino.git
@@ -22,25 +27,31 @@ $ ./sample
 #### 1. include "cappuccino.h"
 #### 2. write code
 ```cpp
-// initialize
-Cappuccino::Cappuccino(argc, argv);
-// set document_root
-Cappuccino::document_root("html");
-// add function
-Cappuccino::add_route("/", [&](Cappuccino::Request* req) -> Cappuccino::Response{
-	auto response = Cappuccino::Response(req->protocol(), Cappuccino::Response::FILE);
-  // send html file
-	response.set_filename("index.html");
-	return response;
-});
-Cappuccino::add_route("/chino", [&](Cappuccino::Request* req) -> Cappuccino::Response{
-	auto response = Cappuccino::Response(req->protocol(), Cappuccino::Response::FILE);
-	response.set_filename("chino.html");
-	return response;
-});
+#include "cappuccino.h"
 
-// runnning
-Cappuccino::run();
+int main(int argc, char *argv[]) {
+	// initialize
+	Cappuccino::Cappuccino(argc, argv);
+
+	// set static files root
+	Cappuccino::add_static_root("public");
+
+	// set document_root
+	Cappuccino::add_view_root("html");
+
+	// add function
+	Cappuccino::add_route("/", [](Cappuccino::Request* req) -> Cappuccino::Response{
+		return Cappuccino::ResponseBuilder(req)
+					.status(200,"OK")
+					.file("index.html")
+					.build();
+	});
+
+	// runnning
+	Cappuccino::run();
+	
+	return 0;
+}
 ```
 
 ### 3. compile
