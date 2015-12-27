@@ -394,12 +394,19 @@ namespace Cappuccino{
 			}
 		};
 
-		Headers* headers_;
+		std::unique_ptr<Headers> headers_;
 		string body_;
 		string filename_;
 		std::map<string, string>* replaces_;
 
 	  public:
+
+	  	ResponseBuilder():
+	  		filename_(""),
+	  		body_(""),
+	  		headers_(new Headers())
+  		{}
+
 		ResponseBuilder& status(int code, string msg){
 		    headers_->set_status_code(code);
 		    headers_->set_message(msg);
@@ -480,7 +487,7 @@ namespace Cappuccino{
 			return *this;
 		}
 
-		ResponseBuilder& file(string& filename){
+		ResponseBuilder& file(const string& filename){
 			filename_ = filename;
 			return *this;
 		}
@@ -499,11 +506,11 @@ namespace Cappuccino{
 
 	static string view_root_ = "";
 	static string static_root_ = "public";
-	std::map<string, std::function<Response(std::unique_ptr<Request>)>> routes_;
+	std::map<string, std::function<Response(Request*)>> routes_;
 	std::map<string, std::function<Response(std::unique_ptr<Request>)>> static_routes_;
 
-	static void add_route(const string& route,const std::function<Response(std::unique_ptr<Request>)>& function){
-		routes_.insert( std::map<string,std::function<Response(std::unique_ptr<Request>)>>::value_type(route, function));
+	static void add_route(const string& route,const std::function<Response(Request*)>& function){
+		routes_.insert( std::map<string,std::function<Response(Request*)>>::value_type(route, function));
 	}
 
 	static void add_static_root(const string& path){
@@ -602,8 +609,8 @@ namespace Cappuccino{
 
 		auto pos(routes_.find(request->url()));
 		if( pos != routes_.end()){
-			return pos->second(std::move(request));
-		}
+			return pos->second(request.get());
+		}		
 		return Response("");
 	}
 
