@@ -330,7 +330,7 @@ namespace Cappuccino{
 					// POST paramaters
 					auto param_key_val = utils::split(lines[i],"=");
 					if(param_key_val.size() == 2){
-						res->params_.insert( std::map< string, string>::value_type( param_key_val[0], utils::url_decode(param_key_val[1])));
+						res->post_params_.insert( std::map< string, string>::value_type( param_key_val[0], utils::url_decode(param_key_val[1])));
 					}
 				}
 			}
@@ -340,7 +340,7 @@ namespace Cappuccino{
 				for(auto param : params){
 					auto param_key_val = utils::split( param,"=");
 					if(param_key_val.size() == 2){
-						res->params_.insert( std::map< string, string>::value_type( param_key_val[0], utils::url_decode(param_key_val[1])));
+						res->get_params_.insert( std::map< string, string>::value_type( param_key_val[0], utils::url_decode(param_key_val[1])));
 					}
 				}
 			}
@@ -497,15 +497,13 @@ namespace Cappuccino{
 		}
 	};
 
-// [WIP]
-
 	static string view_root_ = "";
 	static string static_root_ = "public";
-	std::map<string, std::function<Response(Request*)>> routes_;
-	std::map<string, std::function<Response(Request*)>> static_routes_;
+	std::map<string, std::function<Response(std::unique_ptr<Request>)>> routes_;
+	std::map<string, std::function<Response(std::unique_ptr<Request>)>> static_routes_;
 
-	static void add_route(const string& route,const std::function<Response(Request*)>& function){
-		routes_.insert( std::map<string,std::function<Response(Request*)>>::value_type(route, function));
+	static void add_route(const string& route,const std::function<Response(std::unique_ptr<Request>)>& function){
+		routes_.insert( std::map<string,std::function<Response(std::unique_ptr<Request>)>>::value_type(route, function));
 	}
 
 	static void add_static_root(const string& path){
@@ -601,13 +599,12 @@ namespace Cappuccino{
 
 	static Response create_response(char* req){
 		std::unique_ptr<Request> request = Request().factory(string(req));
-		for(auto route : routes_){
-			if(route == request.url()){
-				return route[request.url()](request);
-			}
+
+		auto pos(routes_.find(request->url()));
+		if( pos != routes_.end()){
+			return pos->second(std::move(request));
 		}
-		// WIP
-		return Response();
+		return Response("");
 	}
 
 	static string receive_process(int sessionfd){
@@ -668,7 +665,7 @@ namespace Cappuccino{
 	            }
 	            continue;
 	        }
-	        for(fd = 0; fd < FD_SETSIZE; fd++) {
+	        for(fd = 0; fd < FD_SETSIZE; fd++){
 	            if(FD_ISSET(fd,&mask2fds)) {
 	                if(fd == sockfd_) {
 	                	memset( &client, 0, sizeof(client));
@@ -696,5 +693,4 @@ namespace Cappuccino{
 		port_ = 1204;
 		set_argument_value(argc, argv);
 	}
-
 };
