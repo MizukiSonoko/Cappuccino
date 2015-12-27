@@ -7,6 +7,7 @@
 #include <sys/socket.h>
 #include <sys/types.h> 
 #include <sys/wait.h>
+#include <dirent.h>
 #include <fcntl.h>
 #include <errno.h>
 #include <string>
@@ -390,6 +391,7 @@ namespace Cappuccino{
 					str += value->first + ":" + value->second + "\n";
 				}
 				str += "\n";
+				Logger::i(str);
 				return "";
 			}
 		};
@@ -402,9 +404,9 @@ namespace Cappuccino{
 	  public:
 
 	  	ResponseBuilder():
-	  		filename_(""),
+	  		headers_(new Headers()),
 	  		body_(""),
-	  		headers_(new Headers())
+	  		filename_("")
   		{}
 
 		ResponseBuilder& status(int code, string msg){
@@ -424,7 +426,6 @@ namespace Cappuccino{
 		}
 
 		static std::vector<char> fileInput(string aFilename){
-			//[WIP]
 			string filename = aFilename;
 			std::ifstream ifs( filename, std::ios::in | std::ios::binary);
 			if(ifs.fail()){
@@ -482,7 +483,7 @@ namespace Cappuccino{
             }            
 		}
 
-		ResponseBuilder& text(string& txt){
+		ResponseBuilder& text(const string& txt){
 			body_ = txt;
 			return *this;
 		}
@@ -498,16 +499,21 @@ namespace Cappuccino{
 		}
 
 		Response build(){
-			auto body_pair = file2str();
-			headers_->add_param( "Content-type", body_pair.second);
-			return Response(string(*headers_) + body_pair.first);
+			if(filename_ != ""){
+				auto body_pair = file2str();
+				headers_->add_param( "Content-type", body_pair.second);
+				return Response(string(*headers_) + body_pair.first);
+			}else{				
+				headers_->add_param( "Content-type", "text/html");
+				return Response(string(*headers_) + body_);
+			}
 		}
 	};
 
 	static string view_root_ = "";
 	static string static_root_ = "public";
 	std::map<string, std::function<Response(Request*)>> routes_;
-	std::map<string, std::function<Response(std::unique_ptr<Request>)>> static_routes_;
+	std::map<string, std::function<Response(Request*)>> static_routes_;
 
 	static void add_route(const string& route,const std::function<Response(Request*)>& function){
 		routes_.insert( std::map<string,std::function<Response(Request*)>>::value_type(route, function));
@@ -611,6 +617,13 @@ namespace Cappuccino{
 		if( pos != routes_.end()){
 			return pos->second(request.get());
 		}		
+
+		// static
+		pos = static_routes_.find(request->url());
+		if( pos != static_routes_.end()){
+			return pos->second(request.get());
+		}		
+
 		return Response("");
 	}
 
@@ -641,9 +654,43 @@ namespace Cappuccino{
 	
 	time_t client_info[FD_SETSIZE];
 
+	void load(string directory,string filename){
+		if(filename == "." || filename == "..") return;
+
+		if(filename!="")
+			directory += "/" + filename;
+		DIR* dir = opendir(directory.c_str());
+		if(dir!=NULL){
+			struct dirent* dent;
+	        dent = readdir(dir);
+		    while(dent!=NULL){
+		        dent = readdir(dir);
+		        if(dent!=NULL)
+			        load(directory, string(dent->d_name));
+		    }
+		    closedir(dir);
+		}else{
+			static_routes_.insert( std::map<string,std::function<Response(Request*)>>::value_type(
+				"/" + directory, 
+					[directory](Request* request) -> Response{
+						return Cappuccino::ResponseBuilder()
+							.status(200,"OK")
+							.file(directory)
+							.build();
+					}
+				));
+		}
+	}
+
+	static void load_static_files(){
+		load(static_root_,"");
+	}
+
 	static void run(){
 		init_socket();
 		signal_utils::init_signal();
+		load_static_files();
+
 		Logger::i("Running on http://localhost:" + std::to_string(port_) + "/");
 
 	    int cd[FD_SETSIZE];
