@@ -12,22 +12,14 @@ int main(int argc, char *argv[]) {
 					.build();
 	});
 
-	Cappuccino::add_route("/hello", [](Cappuccino::Request* req) -> Cappuccino::Response{
+	Cappuccino::add_route("/rize", [](Cappuccino::Request* req) -> Cappuccino::Response{
 		return Cappuccino::ResponseBuilder(req)
 					.status(200,"OK")
 					.text("Hello world!")
 					.build();
 	});
 
-	Cappuccino::add_route("/json", [&](Cappuccino::Request* req) -> Cappuccino::Response{
-		return Cappuccino::ResponseBuilder(req)
-					.status(200,"OK")
-					.header_param("Content-type","json")
-					.file("sample.json")
-					.build();
-	});
-
-	Cappuccino::add_route("/gochiusa/sharo",[&](Cappuccino::Request* req) -> Cappuccino::Response{
+	Cappuccino::add_route("/sharo",[&](Cappuccino::Request* req) -> Cappuccino::Response{
 		return Cappuccino::ResponseBuilder(req)
 					.status(200,"OK")
 					.header_param("Content-type","json")
@@ -35,6 +27,23 @@ int main(int argc, char *argv[]) {
 					.replace("value",req->get("value"))
 					.file("sample.json")
 					.build();
+	});
+
+
+	Cappuccino::add_route("/cocoa",[&](Cappuccino::Request* req) -> Cappuccino::Response{
+		if(req->method() == Cappuccino::Request::POST){
+			return Cappuccino::ResponseBuilder(req)
+						.status(200,"OK")
+						.replace("@order",req->post("order"))
+						.file("cocoa.html")
+						.build();
+		}else{
+			return Cappuccino::ResponseBuilder(req)
+						.status(200,"OK")
+						.replace("@order","コーヒー")
+						.file("cocoa.html")
+						.build();			
+		}
 	});
 
 #ifndef TEST
