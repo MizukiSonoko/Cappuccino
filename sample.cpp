@@ -27,7 +27,10 @@ int main(int argc, char *argv[]) {
 					.build();
 	});
 
+
+#ifndef TEST
 	Cappuccino::run();
+#endif
 
 	return 0;
 }
