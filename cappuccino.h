@@ -348,41 +348,17 @@ namespace Cappuccino{
 		}
 	};
 
-// [WIP]
+	// This class is only wapper for response string. 
 	class Response{
 	  public:
-
 	  protected:
-		string response_;
-		string filename_;
-
-		string protocol_;
-		int status_;
-
-		std::map<string,string> replace_values_;
-		std::map<string,string> headers_;
-
+	  	string response_;
 	  public:
-
-		explicit Response():			
-			protocol_("1.1"),
-			status_(200){}
-
-		void add_replace_value(string key, string val){
-			replace_values_.insert( std::map<string, string>::value_type( key, val));
-		}
-
-		void set_status(int status){
-			status_ = status;
-		}		
-
-		int status() const{
-			return status_;
-		}
+		explicit Response(const string& res):
+			response_(res){}
 
 		operator string() const{
-			// [WIP]
-			return "";
+			return response_;
 		}
 	};
 
@@ -514,13 +490,10 @@ namespace Cappuccino{
 		    return *this;
 		}
 
-		string build(){
+		Response build(){
 			auto body_pair = file2str();
 			headers_->add_param( "Content-type", body_pair.second);
-			if(body_pair.second == "text/html"){
-
-			}
-			return string(*headers_) + body_pair.first;
+			return Response(string(*headers_) + body_pair.first);
 		}
 	};
 
