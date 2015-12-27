@@ -62,6 +62,10 @@ namespace Cappuccino{
 	static int sessionfd_ = 0;
     fd_set mask1fds, mask2fds;
 
+
+	static string view_root_ = "";
+	static string static_root_ = "public";
+
 	namespace security{
 		void replaces_body(string* str){
 			// ToDo add more case.
@@ -383,8 +387,8 @@ namespace Cappuccino{
 			}
 			// Forbidden override :+1:
 			void add_param(string key, string val){
-				auto pos(get_params_.find(key));
-				if( pos != get_params_.end() ){
+				auto pos(params_.find(key));
+				if( pos != params_.end()){
 					params_.insert( make_pair(key,val));				
 				}
 			}
@@ -439,10 +443,10 @@ namespace Cappuccino{
 			string filename = aFilename;
 			std::ifstream ifs( filename, std::ios::in | std::ios::binary);
 			if(ifs.fail()){
-				auto static_file_path = aFilename.substr(1, aFilename.size()-1);
-			    ifs.open(static_file_path, std::ios::in | std::ios::binary);
+				auto view_file = view_root_ + "/" + aFilename;
+			    ifs.open(view_file, std::ios::in | std::ios::binary);
 				if(ifs.fail()){
-					throw std::runtime_error("No such file or directory \""+ filename +"\" and "+static_file_path+"\"\n");
+					throw std::runtime_error("No such file or directory \""+ filename +"\" and "+view_file+"\"\n");
 				}
 			}
 			ifs.seekg( 0, std::ios::end);
@@ -519,9 +523,6 @@ namespace Cappuccino{
 			}
 		}
 	};
-
-	static string view_root_ = "";
-	static string static_root_ = "public";
 	std::map<string, std::function<Response(Request*)>> routes_;
 	std::map<string, std::function<Response(Request*)>> static_routes_;
 
