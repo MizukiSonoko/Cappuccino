@@ -12,7 +12,7 @@
 #include <errno.h>
 #include <string>
 #include <functional>
-#include <map>
+#include <unordered_map>
 #include <list>
 #include <algorithm>
 #include <iostream>
@@ -241,9 +241,9 @@ namespace Cappuccino{
 		};
 
 	  private:
-		std::map<string,string> headers_;
-		std::map<string,string> get_params_;
-		std::map<string,string> post_params_;
+		std::unordered_map<string,string> headers_;
+		std::unordered_map<string,string> get_params_;
+		std::unordered_map<string,string> post_params_;
 
 		string url_;
 		string protocol_;
@@ -283,7 +283,7 @@ namespace Cappuccino{
 		Method method() const{
 			return method_;
 		}
-		std::map<string,string> headers() const{
+		std::unordered_map<string,string> headers() const{
 			return headers_;
 		}		
 
@@ -332,12 +332,12 @@ namespace Cappuccino{
 			for(int i = 1;i < line_size; i++){
 				auto key_val = utils::split(lines[i],": ");
 				if(key_val.size() == 2){
-					res->headers_.insert( std::map< string, string>::value_type( key_val[0], key_val[1]));
+					res->headers_.insert( make_pair( key_val[0], key_val[1]));
 				}else{
 					// POST paramaters
 					auto param_key_val = utils::split(lines[i],"=");
 					if(param_key_val.size() == 2){
-						res->post_params_.insert( std::map< string, string>::value_type( param_key_val[0], utils::url_decode(param_key_val[1])));
+						res->post_params_.insert( make_pair( param_key_val[0], utils::url_decode(param_key_val[1])));
 					}
 				}
 			}
@@ -347,7 +347,7 @@ namespace Cappuccino{
 				for(auto param : params){
 					auto param_key_val = utils::split( param,"=");
 					if(param_key_val.size() == 2){
-						res->get_params_.insert( std::map< string, string>::value_type( param_key_val[0], utils::url_decode(param_key_val[1])));
+						res->get_params_.insert( make_pair( param_key_val[0], utils::url_decode(param_key_val[1])));
 					}
 				}
 			}
@@ -357,7 +357,6 @@ namespace Cappuccino{
 
 	// This class is only wapper for response string. 
 	class Response{
-	  public:
 	  protected:
 	  	string response_;
 	  public:
@@ -369,14 +368,13 @@ namespace Cappuccino{
 		}
 	};
 
-	
 	class ResponseBuilder{
 
 		class Headers{
 			int status_code_;
 			string message_;
 			string version_;
-			std::map<string, string> params_;
+			std::unordered_map<string, string> params_;
 		  public:
 		  	void set_status_code(int code){
 				status_code_ = code;	  		
@@ -408,7 +406,7 @@ namespace Cappuccino{
 		std::unique_ptr<Headers> headers_;
 		string body_;
 		string filename_;
-		std::unique_ptr<std::map<string, string>> replaces_;
+		std::unique_ptr<std::unordered_map<string, string>> replaces_;
 
 	  public:
 
@@ -416,7 +414,7 @@ namespace Cappuccino{
 	  		headers_(new Headers()),
 	  		body_(""),
 	  		filename_(""),
-	  		replaces_(new std::map<string, string>())
+	  		replaces_(new std::unordered_map<string, string>())
   		{
   			http_version(request->protocol());
   		}
@@ -545,11 +543,11 @@ namespace Cappuccino{
 			}
 		}
 	};
-	std::map<string, std::function<Response(Request*)>> routes_;
-	std::map<string, std::function<Response(Request*)>> static_routes_;
+	std::unordered_map<string, std::function<Response(Request*)>> routes_;
+	std::unordered_map<string, std::function<Response(Request*)>> static_routes_;
 
 	static void add_route(const string& route,const std::function<Response(Request*)>& function){
-		routes_.insert( std::map<string,std::function<Response(Request*)>>::value_type(route, function));
+		routes_.insert( make_pair(route, function));
 	}
 
 	static void add_static_root(const string& path){
@@ -703,7 +701,7 @@ namespace Cappuccino{
 		    }
 		    closedir(dir);
 		}else{
-			static_routes_.insert( std::map<string,std::function<Response(Request*)>>::value_type(
+			static_routes_.insert( make_pair(
 				"/" + directory, 
 					[directory](Request* request) -> Response{
 						return Cappuccino::ResponseBuilder(request)
