@@ -412,7 +412,8 @@ namespace Cappuccino{
 	  	ResponseBuilder(Request* request):
 	  		headers_(new Headers()),
 	  		body_(""),
-	  		filename_("")
+	  		filename_(""),
+	  		replaces_(new std::map<string, string>())
   		{
   			http_version(request->protocol());
   		}

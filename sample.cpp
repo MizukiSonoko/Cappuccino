@@ -27,6 +27,15 @@ int main(int argc, char *argv[]) {
 					.build();
 	});
 
+	Cappuccino::add_route("/gochiusa/sharo",[&](Cappuccino::Request* req) -> Cappuccino::Response{
+		return Cappuccino::ResponseBuilder(req)
+					.status(200,"OK")
+					.header_param("Content-type","json")
+					.replace("name",req->get("name"))
+					.replace("value",req->get("value"))
+					.file("sample.json")
+					.build();
+	});
 
 #ifndef TEST
 	Cappuccino::run();
