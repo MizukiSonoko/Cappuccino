@@ -368,6 +368,119 @@ namespace Cappuccino{
 		}
 	};
 
+	class FileLoader{
+
+		std::unordered_map<string, string>* replaces_;
+		string filename_;
+
+		string data_;
+		string type_;
+		void exec_replaces(string* str) const{
+			std::string::size_type pos;
+			for(auto it = replaces_->begin(); it != replaces_->end(); ++it){
+				pos = str->find(it->first);
+				while( pos != std::string::npos ){
+					security::replaces_body(&it->second);					
+				    str->replace( pos, it->first.length(), it->second );
+				    pos = str->find( it->first, pos + it->second.length() );
+				}
+		    }
+		}
+
+		static std::vector<char> fileInput(string aFilename){
+			string filename = aFilename;
+			std::ifstream ifs( filename, std::ios::in | std::ios::binary);
+			if(ifs.fail()){
+				auto view_file = view_root_ + "/" + aFilename;
+			    ifs.open(view_file, std::ios::in | std::ios::binary);
+				if(ifs.fail()){
+					throw std::runtime_error("No such file or directory \""+ filename +"\" and "+view_file+"\"\n");
+				}
+			}
+			ifs.seekg( 0, std::ios::end);
+			auto pos = ifs.tellg();
+			ifs.seekg( 0, std::ios::beg);
+
+			std::vector<char> buf(pos);
+			ifs.read(buf.data(), pos);
+			return buf;
+		}
+
+	  public:
+	  	FileLoader(string filename):
+	  		replaces_(new std::unordered_map<string, string>()),
+	  		filename_(filename),
+	  		data_(""),
+	  		type_("")
+	  		{}
+
+		FileLoader& replace(string key, string val){
+			replaces_->insert( make_pair(key, val) );
+		    return *this;
+		}
+		string filename() const{
+			return filename_;
+		}
+		bool loaded() const{
+			return type_ != "";
+		}
+
+		void preload(){
+			Logger::i("preload: "+filename_);
+			try{
+		        auto result = std::async( std::launch::async, fileInput, filename_);
+		        auto buf = result.get();
+
+		        string response(buf.begin(), buf.end());
+#if !defined(__APPLE__) && defined(__GNUC__) && __GNUC__ * 10  + __GNUC_MINOR__ < 49
+				if( response[0] == '\xFF' && response[1] == '\xD8'){
+					data_ = response;
+					type_ = "image/jpg";
+				}else if( response[0] == '\x89' && response[1] == 'P' && response[2] == 'N' && response[3] == 'G'){
+					data_ = response;
+					type_ = "image/png";
+				}else if( response[0] == 'G' && response[1] == 'I' && response[2] == 'F' && response[3] == '8' && (response[4] == '7' || response[4] == '9') && response[2] == 'a'){
+					data_ = response;
+					type_ = "image/gif";
+				}else{
+					exec_replaces(&response);
+					data_ = response;
+					type_ = "text/html";
+				}
+#else
+				std::smatch m;
+				std::regex rejpg( R"(^\xFF\xD8)");
+				std::regex repng( R"(^\x89PNG)");
+				std::regex regif( R"(^GIF8[79]a)");
+
+				if(std::regex_search( response, m, rejpg )){
+					data_ = response;
+					type_ = "image/jpg";
+			    }else if(std::regex_search( response, m, repng )){
+					data_ = response;
+					type_ = "image/png";
+			    }else if(std::regex_search( response, m, regif )){
+					data_ = response;
+					type_ = "image/gif";
+				}else{
+					exec_replaces(&response);
+					data_ = response;
+					type_ = "text/html";
+				}
+#endif
+
+		    } catch ( std::exception & exception ){
+				Logger::e(exception.what());
+				data_ = "";
+				type_ = "text/html";
+            }
+		}
+
+		std::pair<string,string> file2str() const{
+			return make_pair( data_, type_);        
+		}
+
+	};
 	class ResponseBuilder{
 
 		class Headers{
@@ -406,15 +519,13 @@ namespace Cappuccino{
 		std::unique_ptr<Headers> headers_;
 		string body_;
 		string filename_;
-		std::unique_ptr<std::unordered_map<string, string>> replaces_;
-
+		FileLoader file_loader_;
 	  public:
 
 	  	ResponseBuilder(Request* request):
 	  		headers_(new Headers()),
 	  		body_(""),
-	  		filename_(""),
-	  		replaces_(new std::unordered_map<string, string>())
+	  		file_loader_("")
   		{
   			http_version(request->protocol());
   		}
@@ -430,11 +541,6 @@ namespace Cappuccino{
 		    return *this;
 		}
 
-		ResponseBuilder& replaces(string key, string value){
-		    replaces_->insert( make_pair(key, value) );
-		    return *this;
-		}
-
 		ResponseBuilder& http_version(string val){
 		    headers_->set_version(val);
 		    return *this;
@@ -445,106 +551,32 @@ namespace Cappuccino{
 		    return *this;			
 		}
 
-		void replaces(string* str) const{
-			std::string::size_type pos;
-			for(auto it = replaces_->begin(); it != replaces_->end(); ++it){
-				pos = str->find(it->first);
-				while( pos != std::string::npos ){
-					security::replaces_body(&it->second);					
-				    str->replace( pos, it->first.length(), it->second );
-				    pos = str->find( it->first, pos + it->second.length() );
-				}
-		    }
-		}
-
-		static std::vector<char> fileInput(string aFilename){
-			string filename = aFilename;
-			std::ifstream ifs( filename, std::ios::in | std::ios::binary);
-			if(ifs.fail()){
-				auto view_file = view_root_ + "/" + aFilename;
-			    ifs.open(view_file, std::ios::in | std::ios::binary);
-				if(ifs.fail()){
-					throw std::runtime_error("No such file or directory \""+ filename +"\" and "+view_file+"\"\n");
-				}
-			}
-			ifs.seekg( 0, std::ios::end);
-			auto pos = ifs.tellg();
-			ifs.seekg( 0, std::ios::beg);
-
-			std::vector<char> buf(pos);
-			ifs.read(buf.data(), pos);
-			return buf;
-		}
-
-		std::pair<string,string> file2str() const{	
-			try{
-		        auto result = std::async( std::launch::async, fileInput, filename_);
-		        auto buf = result.get();
-
-		        string response(buf.begin(), buf.end());
-#if !defined(__APPLE__) && defined(__GNUC__) && __GNUC__ * 10  + __GNUC_MINOR__ < 49
-				if( response[0] == '\xFF' && response[1] == '\xD8'){
-					return make_pair(response, "image/jpg");
-				}else if( response[0] == '\x89' && response[1] == 'P' && response[2] == 'N' && response[3] == 'G'){
-					return make_pair(response, "image/png");
-				}else if( response[0] == 'G' && response[1] == 'I' && response[2] == 'F' && response[3] == '8' && (response[4] == '7' || response[4] == '9') && response[2] == 'a'){
-					return make_pair(response, "image/gif");
-				}else{
-					replaces(&response);
-					return std::make_pair(response, "text/html");
-				}
-#else
-				std::smatch m;
-				std::regex rejpg( R"(^\xFF\xD8)");
-				std::regex repng( R"(^\x89PNG)");
-				std::regex regif( R"(^GIF8[79]a)");
-
-				if(std::regex_search( response, m, rejpg )){
-					return make_pair(response, "image/jpg");
-			    }else if(std::regex_search( response, m, repng )){
-					return make_pair(response, "image/png");
-			    }else if(std::regex_search( response, m, regif )){
-					return make_pair(response, "image/gif");
-				}else{
-					replaces(&response);
-					return std::make_pair(response, "text/html");
-				}
-#endif
-
-		    } catch ( std::exception & exception ){
-				Logger::e(exception.what());
-				return std::make_pair("", "text/html");	
-            }            
-		}
-
+		
 		ResponseBuilder& text(const string& txt){
 			body_ = txt;
 			return *this;
 		}
 
-		ResponseBuilder& file(const string& filename){
-			filename_ = filename;
+		ResponseBuilder& file(FileLoader fileLoader){
+			file_loader_ = fileLoader;
 			return *this;
 		}
 
-		ResponseBuilder& replace(string key, string val){
-			replaces_->insert( make_pair(key, val) );
-		    return *this;
-		}
-
 		Response build(){
-			if(filename_ != ""){
-				auto body_pair = file2str();
+			if(file_loader_.filename() != ""){		
+				if(!file_loader_.loaded())	
+					file_loader_.preload();
+
+				auto body_pair = file_loader_.file2str();
 				headers_->add_param( "Content-type", body_pair.second);
-				headers_->add_param( "Content-Length", std::to_string(body_pair.first.size()));
 				return Response(string(*headers_) + body_pair.first);
 			}else{				
 				headers_->add_param( "Content-type", "text/html");
-				headers_->add_param( "Content-Length", std::to_string(body_.size()));
 				return Response(string(*headers_) + body_);
 			}
 		}
 	};
+
 	std::unordered_map<string, std::function<Response(Request*)>> routes_;
 	std::unordered_map<string, std::function<Response(Request*)>> static_routes_;
 
@@ -650,12 +682,12 @@ namespace Cappuccino{
 		if( pos != routes_.end()){
 			return pos->second(request.get());
 		}		
-
 		// static
 		pos = static_routes_.find(request->url());
 		if( pos != static_routes_.end()){
 			return pos->second(request.get());
 		}		
+
 
 		return Response("");
 	}
@@ -703,12 +735,15 @@ namespace Cappuccino{
 		    }
 		    closedir(dir);
 		}else{
+			Logger::i(directory);
+			auto static_file = Cappuccino::FileLoader(directory);
+			static_file.preload();
 			static_routes_.insert( make_pair(
 				"/" + directory, 
-					[directory](Request* request) -> Response{
+					[static_file](Request* request) -> Response{
 						return Cappuccino::ResponseBuilder(request)
 							.status(200,"OK")
-							.file(directory)
+							.file(static_file)
 							.build();
 					}
 				));
