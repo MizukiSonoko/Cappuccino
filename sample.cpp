@@ -8,7 +8,7 @@ int main(int argc, char *argv[]) {
 	Cappuccino::add_route("/", [](Cappuccino::Request* req) -> Cappuccino::Response{
 		return Cappuccino::ResponseBuilder(req)
 					.status(200,"OK")
-					.file("index.html")
+					.file(Cappuccino::FileLoader("index.html"))
 					.build();
 	});
 
@@ -23,9 +23,10 @@ int main(int argc, char *argv[]) {
 		return Cappuccino::ResponseBuilder(req)
 					.status(200,"OK")
 					.header_param("Content-type","json")
-					.replace("name",req->get("name"))
-					.replace("value",req->get("value"))
-					.file("sample.json")
+					.file( Cappuccino::FileLoader("sample.json")
+							.replace("name",req->get("name"))
+							.replace("value",req->get("value"))
+					)
 					.build();
 	});
 
@@ -34,14 +35,16 @@ int main(int argc, char *argv[]) {
 		if(req->method() == Cappuccino::Request::POST){
 			return Cappuccino::ResponseBuilder(req)
 						.status(200,"OK")
-						.replace("@order",req->post("order"))
-						.file("cocoa.html")
+						.file(Cappuccino::FileLoader("cocoa.html")
+							.replace("@order",req->post("order"))
+						)
 						.build();
 		}else{
 			return Cappuccino::ResponseBuilder(req)
 						.status(200,"OK")
-						.replace("@order","コーヒー")
-						.file("cocoa.html")
+						.file(Cappuccino::FileLoader("cocoa.html")
+							.replace("@order","コーヒー")
+						)
 						.build();			
 		}
 	});
