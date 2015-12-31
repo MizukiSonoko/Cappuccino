@@ -816,3 +816,8 @@ namespace Cappuccino{
 		set_argument_value(argc, argv);
 	}
 };
+
+namespace Cocoa{
+
+};
+
