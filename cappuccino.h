@@ -578,7 +578,14 @@ namespace Cappuccino{
 	};
 
 	std::unordered_map<string, std::function<Response(Request*)>> routes_;
+	
+	std::unordered_map< int, std::function<Response(Request*)>> other_routes_;
+
 	std::unordered_map<string, std::function<Response(Request*)>> static_routes_;
+
+	static void add_other_route(int code, const std::function<Response(Request*)>& function){
+		other_routes_.insert( make_pair( code, function));
+	}
 
 	static void add_route(const string& route,const std::function<Response(Request*)>& function){
 		routes_.insert( make_pair(route, function));
@@ -688,7 +695,10 @@ namespace Cappuccino{
 			return pos->second(request.get());
 		}		
 
-
+		auto posir = other_routes_.find(404);
+		if( posir != other_routes_.end()){
+			return posir->second(request.get());
+		}
 		return Response("");
 	}
 
@@ -818,6 +828,7 @@ namespace Cappuccino{
 };
 
 namespace Cocoa{
+	class App{};
 
 };
 
