@@ -57,27 +57,28 @@ namespace Cappuccino{
 	
 	using string = std::string;
 
-	static int port_ = 1204;
-	static int sockfd_ = 0;
-	static int sessionfd_ = 0;
+	static int port_{ 1204 };
+	static int sockfd_{ 0 };
+	static int sessionfd_{ 0 };
     fd_set mask1fds, mask2fds;
 
 
-	static string view_root_ = "";
-	static string static_root_ = "public";
+	static string view_root_{ "" };
+	static string static_root_{ "public" };
 
 	namespace security{
 
 		void replaces_body(string* str){
 			// ToDo add more case.
-			std::vector<std::pair<string, string>> replaces(4);
-			replaces.push_back( std::make_pair("<","&lt;"));
-			replaces.push_back( std::make_pair(">","&gt;"));
-			replaces.push_back( std::make_pair("&","&amp;"));
-			replaces.push_back( std::make_pair("\"","&quot"));
+			std::vector<std::pair<string, string>> replaces{
+				std::make_pair("<","&lt;"),
+				std::make_pair(">","&gt;"),
+				std::make_pair("&","&amp;"),
+				std::make_pair("\"","&quot")
+			};
 
 			std::string::size_type pos;
-			for(auto it = replaces.begin(); it != replaces.end(); ++it){
+			for(auto it = replaces.cbegin(); it != replaces.cend(); ++it){
 				pos = str->find(it->first);
 				while( pos != std::string::npos ){
 				    str->replace( pos, it->first.length(), it->second );
@@ -119,13 +120,13 @@ namespace Cappuccino{
 		}
 
 		char hex2char(char high,char low){
-		    char res = hex2int(high);
+		    auto res = hex2int(high);
 		    res = res << 4;
 		    return res + hex2int(low);
 		}
 
 		string url_decode(const string& str){
-		    string res = "";
+		    string res{ "" };
 		    char tmp;
 		    auto len = str.size();
 		    for(auto i = 0; i < len; i++){
@@ -165,7 +166,7 @@ namespace Cappuccino{
 		        auto result = std::async( std::launch::async, fileInput, filename);
 		        auto buf = result.get();
 
-		        string response(buf.begin(), buf.end());
+		        string response(buf.cbegin(), buf.cend());
 
 #if !defined(__APPLE__) && defined(__GNUC__) && __GNUC__ * 10  + __GNUC_MINOR__ < 49
 				if( response[0] == '\xFF' && response[1] == '\xD8'){
@@ -231,7 +232,7 @@ namespace Cappuccino{
 
 	class Request{
   	  public:
-		enum Method{
+		enum class Method{
 			GET,
 			POST,
 			PUT,
@@ -251,17 +252,17 @@ namespace Cappuccino{
 
 		void set_method(const string& m){
 			if(m == "GET"){
-				method_ = GET;
+				method_ = Method::GET;
 			}else if(m == "POST"){
-				method_ = POST;
+				method_ = Method::POST;
 			}else if(m == "PUT"){
-				method_ = PUT;
+				method_ = Method::PUT;
 			}else if(m == "DELETE"){
-				method_ = DELETE;
+				method_ = Method::DELETE;
 			}else if(m == "HEAD"){
-				method_ = HEAD;
+				method_ = Method::HEAD;
 			}else if(m == "OPTION"){
-				method_ = OPTION;
+				method_ = Method::OPTION;
 			}
 		}
 
@@ -289,7 +290,7 @@ namespace Cappuccino{
 
 		string post(const string& key) const{
 			auto pos(post_params_.find(key));
-			if( pos != post_params_.end() ){
+			if( pos != post_params_.cend() ){
 				return pos->second;
 			}
 			return "Invalid param name";
@@ -297,7 +298,7 @@ namespace Cappuccino{
 
 		string get(const string& key) const{
 			auto pos(get_params_.find(key));
-			if( pos != get_params_.end() ){
+			if( pos != get_params_.cend() ){
 				return pos->second;
 			}
 			return "Invalid param name";
@@ -305,13 +306,13 @@ namespace Cappuccino{
 
 		string header(const string& key) const{
 			auto pos(headers_.find(key));
-			if( pos != headers_.end() ){
+			if( pos != headers_.cend() ){
 				return pos->second;
 			}
 			return "Invalid param name";
 		}
 
-		Request() : url_("/"), protocol_("HTTP/1.1"), method_(GET){}
+		Request() : url_("/"), protocol_("HTTP/1.1"), method_(Method::GET){}
 
 		static std::unique_ptr<Request> factory(string request){
 			auto res = std::unique_ptr<Request>(new Request());
@@ -388,7 +389,7 @@ namespace Cappuccino{
 		}
 
 		static std::vector<char> fileInput(string aFilename){
-			string filename = aFilename;
+			auto filename = aFilename;
 			std::ifstream ifs( filename, std::ios::in | std::ios::binary);
 			if(ifs.fail()){
 				auto view_file = view_root_ + "/" + aFilename;
@@ -426,7 +427,6 @@ namespace Cappuccino{
 		}
 
 		void preload(){
-			Logger::i("preload: "+filename_);
 			try{
 		        auto result = std::async( std::launch::async, fileInput, filename_);
 		        auto buf = result.get();

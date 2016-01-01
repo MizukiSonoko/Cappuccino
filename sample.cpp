@@ -19,6 +19,13 @@ int main(int argc, char *argv[]) {
 					.build();
 	});
 
+	Cappuccino::add_other_route( 404, [](Cappuccino::Request* req) -> Cappuccino::Response{
+		return Cappuccino::ResponseBuilder(req)
+					.status(404,"Not Found")
+					.file(Cappuccino::FileLoader("404.html"))
+					.build();
+	});
+
 	Cappuccino::add_route("/sharo",[&](Cappuccino::Request* req) -> Cappuccino::Response{
 		return Cappuccino::ResponseBuilder(req)
 					.status(200,"OK")
@@ -30,9 +37,8 @@ int main(int argc, char *argv[]) {
 					.build();
 	});
 
-
 	Cappuccino::add_route("/cocoa",[&](Cappuccino::Request* req) -> Cappuccino::Response{
-		if(req->method() == Cappuccino::Request::POST){
+		if(req->method() == Cappuccino::Request::Method::POST){
 			return Cappuccino::ResponseBuilder(req)
 						.status(200,"OK")
 						.file(Cappuccino::FileLoader("cocoa.html")
