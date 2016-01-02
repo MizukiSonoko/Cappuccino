@@ -57,6 +57,7 @@ namespace Cappuccino{
 	
 	using string = std::string;
 
+
 	static int port_{ 1204 };
 	static int sockfd_{ 0 };
 	static int sessionfd_{ 0 };
@@ -68,7 +69,7 @@ namespace Cappuccino{
 
 	namespace security{
 
-		void replaces_body(string* str){
+		void replaces_body(string* str) noexcept{
 			// ToDo add more case.
 			std::vector<std::pair<string, string>> replaces{
 				std::make_pair("<","&lt;"),
@@ -92,7 +93,7 @@ namespace Cappuccino{
 
 	namespace utils{
 
-		std::vector<string> split(const string& str, const string& delim){
+		std::vector<string> split(const string& str, const string& delim) noexcept{
 			std::vector<string> result;
 		    string::size_type pos = 0;
 		    while(pos != string::npos ){
@@ -108,7 +109,7 @@ namespace Cappuccino{
 		    return result;
 		}
 
-		int hex2int(char hex){
+		int hex2int(char hex) noexcept{
 			if(hex >= 'A' && hex <= 'F'){
 		        return hex - 'A' + 10;
 		    }else if(hex >= 'a' && hex <= 'f'){
@@ -119,13 +120,13 @@ namespace Cappuccino{
 		    return -1;
 		}
 
-		char hex2char(char high,char low){
+		char hex2char(char high,char low) noexcept{
 		    auto res = hex2int(high);
 		    res = res << 4;
 		    return res + hex2int(low);
 		}
 
-		string url_decode(const string& str){
+		string url_decode(const string& str) noexcept{
 		    string res{ "" };
 		    char tmp;
 		    auto len = str.size();
@@ -146,7 +147,7 @@ namespace Cappuccino{
 		    return res;
 		}
 
-		static std::vector<char> fileInput(const string& filename){
+		static std::vector<char> fileInput(const string& filename) noexcept{
 			std::ifstream ifs( filename, std::ios::in | std::ios::binary);
 			if(ifs.fail()){
 				throw std::runtime_error("No such file or directory \""+ filename +"\"\n");
@@ -161,7 +162,7 @@ namespace Cappuccino{
 			return buf;
 		}
 
-		static std::pair<string,string> file2str(const string& filename){	
+		static std::pair<string,string> file2str(const string& filename) noexcept{	
 			try{
 		        auto result = std::async( std::launch::async, fileInput, filename);
 		        auto buf = result.get();
@@ -250,7 +251,7 @@ namespace Cappuccino{
 		string protocol_;
 		Method method_;		
 
-		void set_method(const string& m){
+		void set_method(const string& m) noexcept{
 			if(m == "GET"){
 				method_ = Method::GET;
 			}else if(m == "POST"){
@@ -266,29 +267,29 @@ namespace Cappuccino{
 			}
 		}
 
-		void set_url(const string& u){
+		void set_url(const string& u) noexcept{
 			url_ = u;
 		}
 
-		void set_protocol(const string& p){
+		void set_protocol(const string& p) noexcept{
 			protocol_ = p;
 		}
 
 	  public:
-	  	string protocol() const{
+	  	string protocol() const noexcept{
 	  		return protocol_;
 	  	}
-		string url() const{
+		string url() const noexcept{
 			return url_;
 		}
-		Method method() const{
+		Method method() const noexcept{
 			return method_;
 		}
-		std::unordered_map<string,string> headers() const{
+		std::unordered_map<string,string> headers() const noexcept{
 			return headers_;
 		}		
 
-		string post(const string& key) const{
+		string post(const string& key) const noexcept{
 			auto pos(post_params_.find(key));
 			if( pos != post_params_.cend() ){
 				return pos->second;
@@ -296,7 +297,7 @@ namespace Cappuccino{
 			return "Invalid param name";
 		}
 
-		string get(const string& key) const{
+		string get(const string& key) const noexcept{
 			auto pos(get_params_.find(key));
 			if( pos != get_params_.cend() ){
 				return pos->second;
@@ -304,7 +305,7 @@ namespace Cappuccino{
 			return "Invalid param name";
 		}
 
-		string header(const string& key) const{
+		string header(const string& key) const noexcept{
 			auto pos(headers_.find(key));
 			if( pos != headers_.cend() ){
 				return pos->second;
@@ -314,7 +315,7 @@ namespace Cappuccino{
 
 		Request() : url_("/"), protocol_("HTTP/1.1"), method_(Method::GET){}
 
-		static std::unique_ptr<Request> factory(string request){
+		static std::unique_ptr<Request> factory(string request) noexcept{
 			auto res = std::unique_ptr<Request>(new Request());
 
 			auto lines = utils::split(request,"\n");			
@@ -360,6 +361,10 @@ namespace Cappuccino{
 	class Response{
 	  protected:
 	  	string response_;
+	  	int status_code_;
+		string message_;
+		string version_;
+		std::unordered_map<string, string> params_;
 	  public:
 		explicit Response(const string& res):
 			response_(res){}
@@ -388,7 +393,7 @@ namespace Cappuccino{
 		    }
 		}
 
-		static std::vector<char> fileInput(string aFilename){
+		static std::vector<char> fileInput(string aFilename) noexcept{
 			auto filename = aFilename;
 			std::ifstream ifs( filename, std::ios::in | std::ios::binary);
 			if(ifs.fail()){
@@ -419,14 +424,14 @@ namespace Cappuccino{
 			replaces_->insert( make_pair(key, val) );
 		    return *this;
 		}
-		string filename() const{
+		string filename() const noexcept{
 			return filename_;
 		}
-		bool loaded() const{
+		bool loaded() const noexcept{
 			return type_ != "";
 		}
 
-		void preload(){
+		void preload() noexcept{
 			try{
 		        auto result = std::async( std::launch::async, fileInput, filename_);
 		        auto buf = result.get();
@@ -476,8 +481,8 @@ namespace Cappuccino{
             }
 		}
 
-		std::pair<string,string> file2str() const{
-			return make_pair( data_, type_);        
+		std::pair<string,string> file2str() const noexcept{
+			return make_pair( data_, type_);
 		}
 
 	};
@@ -489,24 +494,24 @@ namespace Cappuccino{
 			string version_;
 			std::unordered_map<string, string> params_;
 		  public:
-		  	void set_status_code(int code){
-				status_code_ = code;	  		
+		  	void set_status_code(int code) noexcept{
+				status_code_ = code;
 		  	}
-			void set_message(string msg){
+			void set_message(string msg) noexcept{
 				message_ = msg;
 			}
-			void set_version(string ver){
+			void set_version(string ver) noexcept{
 				version_ = ver;
 			}
 			// Forbidden override :+1:
-			void add_param(string key, string val){
+			void add_param(string key, string val) noexcept{
 				auto pos(params_.find(key));
 				if( pos != params_.end()){
 					params_.insert( make_pair(key,val));				
 				}
 			}
 
-			operator string() const{			
+			operator string() const{		
 				string str = "HTTP/" + version_ + " " + std::to_string(status_code_) + " "+ message_ + "\n";
 				for(auto value = params_.begin(); value != params_.end(); value++){
 					str += value->first + ": " + value->second + "\n";
@@ -530,34 +535,34 @@ namespace Cappuccino{
   			http_version(request->protocol());
   		}
 
-		ResponseBuilder& header_param(string name,string value){
+		ResponseBuilder& header_param(string name,string value) noexcept{
 			headers_->add_param( name, value);
 		    return *this;
 		}
 
-		ResponseBuilder& status(int code, string msg){
+		ResponseBuilder& status(int code, string msg) noexcept{
 		    headers_->set_status_code(code);
 		    headers_->set_message(msg);
 		    return *this;
 		}
 
-		ResponseBuilder& http_version(string val){
+		ResponseBuilder& http_version(string val) noexcept{
 		    headers_->set_version(val);
 		    return *this;
 		}
 
-		ResponseBuilder& param(string key,string val){
+		ResponseBuilder& param(string key,string val) noexcept{
 		    headers_->add_param( key, val);
 		    return *this;			
 		}
 
 		
-		ResponseBuilder& text(const string& txt){
+		ResponseBuilder& text(const string& txt) noexcept{
 			body_ = txt;
 			return *this;
 		}
 
-		ResponseBuilder& file(FileLoader fileLoader){
+		ResponseBuilder& file(FileLoader fileLoader) noexcept{
 			file_loader_ = fileLoader;
 			return *this;
 		}
@@ -583,23 +588,23 @@ namespace Cappuccino{
 
 	std::unordered_map<string, std::function<Response(Request*)>> static_routes_;
 
-	static void add_other_route(int code, const std::function<Response(Request*)>& function){
+	static void add_other_route(int code, const std::function<Response(Request*)>& function) noexcept{
 		other_routes_.insert( make_pair( code, function));
 	}
 
-	static void add_route(const string& route,const std::function<Response(Request*)>& function){
+	static void add_route(const string& route,const std::function<Response(Request*)>& function) noexcept{
 		routes_.insert( make_pair(route, function));
 	}
 
-	static void add_static_root(const string& path){
+	static void add_static_root(const string& path) noexcept{
 		static_root_ = path;
 	}
 
-	static void add_view_root(const string& path){
+	static void add_view_root(const string& path) noexcept{
 		view_root_ = path;
 	}
 
-	static void set_argument_value(int argc, char *argv[]){
+	static void set_argument_value(int argc, char *argv[]) noexcept{
 		char result;
 		while((result = getopt(argc,argv,"dp:")) != -1){
 			switch(result){
@@ -654,7 +659,7 @@ namespace Cappuccino{
 	}
 
 	namespace Regex{
-		std::vector<string> findParent(string text){
+		std::vector<string> findParent(string text) noexcept{
 			std::vector<string> res;
 			string tmp = "";
 			bool isIn = false;
@@ -682,7 +687,7 @@ namespace Cappuccino{
     std::smatch m;
 #endif    
 
-	static Response create_response(char* req){
+	static Response create_response(char* req) noexcept{
 		std::unique_ptr<Request> request = Request().factory(string(req));
 
 		auto pos(routes_.find(request->url()));
@@ -729,7 +734,7 @@ namespace Cappuccino{
 	
 	time_t client_info[FD_SETSIZE];
 
-	void load(string directory,string filename){
+	void load(string directory,string filename) noexcept{
 		if(filename == "." || filename == "..") return;
 
 		if(filename!="")
@@ -760,7 +765,7 @@ namespace Cappuccino{
 		}
 	}
 
-	static void load_static_files(){
+	static void load_static_files() noexcept{
 		load(static_root_,"");
 	}
 
