@@ -129,7 +129,7 @@ namespace Cappuccino{
 		string url_decode(const string& str) noexcept{
 		    string res{ "" };
 		    char tmp;
-		    auto len = str.size();
+		    const auto len = str.size();
 		    for(auto i = 0; i < len; i++){
 		        if(str[i] == '+'){
 		            res += ' ';
@@ -328,7 +328,6 @@ namespace Cappuccino{
 			auto url_params = utils::split(request_head[1],"?");	
 
 			res->set_url(url_params[0]);
-
 			res->set_protocol(request_head[2]);
 
 			for(int i = 1;i < line_size; i++){
@@ -366,8 +365,23 @@ namespace Cappuccino{
 		string version_;
 		std::unordered_map<string, string> params_;
 	  public:
-		explicit Response(const string& res):
-			response_(res){}
+		explicit Response():
+			response_(""),
+			status_code_(501),
+			message_("Not Implemented"),
+			version_("1.1"){}
+
+		explicit Response(
+				const int status_code,
+				const string message,
+				const string version,
+				const std::unordered_map<string, string> params,
+				const string& res):
+			response_(res),
+			status_code_(status_code),
+			message_(message),
+			version_(version),
+			params_(params){}
 
 		operator string() const{
 			return response_;
@@ -497,12 +511,25 @@ namespace Cappuccino{
 		  	void set_status_code(int code) noexcept{
 				status_code_ = code;
 		  	}
+		  	int status_code() noexcept{
+				return status_code_;
+		  	}
 			void set_message(string msg) noexcept{
 				message_ = msg;
+			}
+			string message() noexcept{
+				return message_;
 			}
 			void set_version(string ver) noexcept{
 				version_ = ver;
 			}
+			string version() noexcept{
+				return version_;
+			}
+			std::unordered_map<string, string> params() noexcept{
+				return params_;
+			}
+
 			// Forbidden override :+1:
 			void add_param(string key, string val) noexcept{
 				auto pos(params_.find(key));
@@ -574,10 +601,20 @@ namespace Cappuccino{
 
 				auto body_pair = file_loader_.file2str();
 				headers_->add_param( "Content-type", body_pair.second);
-				return Response(string(*headers_) + body_pair.first);
+				return Response(
+						headers_->status_code(),
+						headers_->message(),
+						headers_->version(),
+						headers_->params(),
+						string(*headers_) + body_pair.first);
 			}else{				
 				headers_->add_param( "Content-type", "text/html");
-				return Response(string(*headers_) + body_);
+				return Response(
+						headers_->status_code(),
+						headers_->message(),
+						headers_->version(),
+						headers_->params(),
+						string(*headers_) + body_);
 			}
 		}
 	};
@@ -704,7 +741,7 @@ namespace Cappuccino{
 		if( posir != other_routes_.end()){
 			return posir->second(request.get());
 		}
-		return Response("");
+		return Response();
 	}
 
 	static string receive_process(int sessionfd){
