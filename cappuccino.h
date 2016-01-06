@@ -507,6 +507,7 @@ namespace Cappuccino{
 			string message_;
 			string version_;
 			std::unordered_map<string, string> params_;
+			std::unordered_map<string, string> cookie_;
 		  public:
 		  	void set_status_code(int code) noexcept{
 				status_code_ = code;
@@ -535,6 +536,12 @@ namespace Cappuccino{
 				auto pos(params_.find(key));
 				if( pos != params_.end()){
 					params_.insert( make_pair(key,val));				
+				}
+			}
+			void add_cookie(string key, string val) noexcept{
+				auto pos(cookie_.find(key));
+				if( pos != cookie_.end()){
+					cookie_.insert( make_pair(key,val));				
 				}
 			}
 
@@ -581,6 +588,11 @@ namespace Cappuccino{
 		ResponseBuilder& param(string key,string val) noexcept{
 		    headers_->add_param( key, val);
 		    return *this;			
+		}
+
+		ResponseBuilder& cookie(string key,string val) noexcept{
+			headers_->add_cookie( key, val);
+		    return *this;
 		}
 
 		
