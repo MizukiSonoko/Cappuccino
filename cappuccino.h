@@ -550,6 +550,13 @@ namespace Cappuccino{
 				for(auto value = params_.begin(); value != params_.end(); value++){
 					str += value->first + ": " + value->second + "\n";
 				}
+				if(cookie_.size() != 0){
+					str += "Set-Cookie: ";
+					for(auto value = cookie_.begin(); value != cookie_.end(); value++){
+						str += value->first + "=" + value->second + "; ";
+					}
+					str += "\n";		
+				}
 				str += "\n";
 				return "";
 			}
@@ -591,7 +598,7 @@ namespace Cappuccino{
 		}
 
 		ResponseBuilder& cookie(string key,string val) noexcept{
-			headers_->add_cookie( key, val);
+			headers_->add_cookiecd ( key, val);
 		    return *this;
 		}
 
