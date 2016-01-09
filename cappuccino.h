@@ -246,6 +246,7 @@ namespace Cappuccino{
 		std::unordered_map<string,string> headers_;
 		std::unordered_map<string,string> get_params_;
 		std::unordered_map<string,string> post_params_;
+		std::unordered_map<string,string> cookie_params_;
 
 		string url_;
 		string protocol_;
@@ -327,10 +328,13 @@ namespace Cappuccino{
 			// get url paramaters.
 			auto url_params = utils::split(request_head[1],"?");	
 
+			Logger::d(request_head[0] +" "+ request_head[1] +" "+ request_head[2]);
+
 			res->set_url(url_params[0]);
 			res->set_protocol(request_head[2]);
 
 			for(int i = 1;i < line_size; i++){
+				Logger::d(lines[i]);
 				auto key_val = utils::split(lines[i],": ");
 				if(key_val.size() == 2){
 					res->headers_.insert( make_pair( key_val[0], key_val[1]));
@@ -522,6 +526,7 @@ namespace Cappuccino{
 				return message_;
 			}
 			void set_version(string ver) noexcept{
+				std::cout<<"("<<ver<<")\n";
 				version_ = ver;
 			}
 			string version() noexcept{
@@ -545,8 +550,12 @@ namespace Cappuccino{
 				}
 			}
 
-			operator string() const{		
-				string str = "HTTP/" + version_ + " " + std::to_string(status_code_) + " "+ message_ + "\n";
+			operator string() const{
+				string str = version_;
+				//str += " ";
+				str = std::to_string(status_code_);
+				//str += " ";
+				//str += message_ + "\n";
 				for(auto value = params_.begin(); value != params_.end(); value++){
 					str += value->first + ": " + value->second + "\n";
 				}
@@ -557,8 +566,9 @@ namespace Cappuccino{
 					}
 					str += "\n";		
 				}
-				str += "\n";
-				return "";
+				str += "\n";				
+				std::cout<<str<<std::endl;
+				return str;
 			}
 		};
 
@@ -566,6 +576,7 @@ namespace Cappuccino{
 		string body_;
 		string filename_;
 		FileLoader file_loader_;
+		Request::Method method_;
 	  public:
 
 	  	ResponseBuilder(Request* request):
@@ -573,7 +584,8 @@ namespace Cappuccino{
 	  		body_(""),
 	  		file_loader_("")
   		{
-  			http_version(request->protocol());
+  			method_ = request->method();
+  			headers_->set_version(request->protocol());
   		}
 
 		ResponseBuilder& header_param(string name,string value) noexcept{
@@ -598,7 +610,7 @@ namespace Cappuccino{
 		}
 
 		ResponseBuilder& cookie(string key,string val) noexcept{
-			headers_->add_cookiecd ( key, val);
+			headers_->add_cookie( key, val);
 		    return *this;
 		}
 
@@ -614,6 +626,15 @@ namespace Cappuccino{
 		}
 
 		Response build(){
+			if(method_ == Request::Method::HEAD){
+				return Response(
+						headers_->status_code(),
+						headers_->message(),
+						headers_->version(),
+						headers_->params(),
+						string(*headers_)
+				);
+			}
 			if(file_loader_.filename() != ""){		
 				if(!file_loader_.loaded())	
 					file_loader_.preload();
@@ -748,7 +769,10 @@ namespace Cappuccino{
 
 		auto pos(routes_.find(request->url()));
 		if( pos != routes_.end()){
-			return pos->second(request.get());
+			auto res = pos->second(request.get());
+			Logger::d("-------");
+			Logger::d(res);
+			return res;
 		}		
 		// static
 		pos = static_routes_.find(request->url());
