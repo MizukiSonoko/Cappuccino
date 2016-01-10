@@ -527,7 +527,6 @@ namespace Cappuccino{
 				return message_;
 			}
 			void set_version(string ver) noexcept{
-				std::cout<<"("<<ver<<")\n";
 				version_ = ver;
 			}
 			string version() noexcept{
@@ -552,7 +551,7 @@ namespace Cappuccino{
 			}
 
 			operator string() const{
-				string str = "HTTP/1.1 "; //version_;
+				string str = "HTTP/1.1 ";
 				std::stringstream ss;
 				ss << status_code_;
 				str += ss.str();
@@ -568,8 +567,7 @@ namespace Cappuccino{
 					}
 					str += "\n";		
 				}
-				str += "\n";				
-				std::cout<<str<<std::endl;
+				str += "\n";
 				return str;
 			}
 		};
