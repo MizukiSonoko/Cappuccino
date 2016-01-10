@@ -16,6 +16,7 @@
 #include <list>
 #include <algorithm>
 #include <iostream>
+#include <sstream>
 
 #if defined(__APPLE__) || defined(__GNUC__) && __GNUC__ * 10  + __GNUC_MINOR__ >= 49
 #include <regex>
@@ -551,11 +552,12 @@ namespace Cappuccino{
 			}
 
 			operator string() const{
-				string str = version_;
-				//str += " ";
-				str = std::to_string(status_code_);
-				//str += " ";
-				//str += message_ + "\n";
+				string str = "HTTP/1.1 "; //version_;
+				std::stringstream ss;
+				ss << status_code_;
+				str += ss.str();
+				str += " ";
+				str += message_ + "\n";
 				for(auto value = params_.begin(); value != params_.end(); value++){
 					str += value->first + ": " + value->second + "\n";
 				}
