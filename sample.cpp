@@ -26,6 +26,13 @@ int main(int argc, char *argv[]) {
 					.build();
 	});
 
+	Cappuccino::add_route("/amausa", [](Cappuccino::Request* req) -> Cappuccino::Response{
+		return Cappuccino::ResponseBuilder(req)
+					.status( 418,"We are Amausa-an(teapot)")
+					.text("Yes tea! No coffee!")
+					.build();
+	});
+
 	Cappuccino::add_route("/sharo",[&](Cappuccino::Request* req) -> Cappuccino::Response{
 		return Cappuccino::ResponseBuilder(req)
 					.status(200,"OK")
@@ -39,6 +46,15 @@ int main(int argc, char *argv[]) {
 
 	Cappuccino::add_route("/cocoa",[&](Cappuccino::Request* req) -> Cappuccino::Response{
 		if(req->method() == Cappuccino::Request::Method::POST){
+			if(req->post("order") == "chino"){
+				return Cappuccino::ResponseBuilder(req)
+						.status(200,"OK")
+						.file(Cappuccino::FileLoader("cocoa.html")
+							.replace("@order",req->post("order"))
+						)
+						.cookie("name","chino")
+						.build();
+			}
 			return Cappuccino::ResponseBuilder(req)
 						.status(200,"OK")
 						.file(Cappuccino::FileLoader("cocoa.html")
