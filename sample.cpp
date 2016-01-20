@@ -45,7 +45,12 @@ int main(int argc, char *argv[]) {
 	});
 
 	Cappuccino::add_route("/cocoa",[&](Cappuccino::Request* req) -> Cappuccino::Response{
+
+		std::string cookies = req->headers()["Set-Cookie"];
+		Logger::i(cookies);
+
 		if(req->method() == Cappuccino::Request::Method::POST){
+
 			if(req->post("order") == "chino"){
 				return Cappuccino::ResponseBuilder(req)
 						.status(200,"OK")
