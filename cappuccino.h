@@ -94,6 +94,11 @@ namespace Cappuccino{
 
 	namespace utils{
 
+		template<typename T>
+		std::string tos(T v){
+			return std::to_string(v);
+		}
+
 		std::vector<string> split(const string& str, const string& delim) noexcept{
 			std::vector<string> result;
 		    string::size_type pos = 0;
@@ -770,8 +775,8 @@ namespace Cappuccino{
 		auto pos(routes_.find(request->url()));
 		if( pos != routes_.end()){
 			auto res = pos->second(request.get());
-			Logger::d("-------");
-			Logger::d(res);
+			//Logger::d("-------");
+			//Logger::d(res);
 			return res;
 		}		
 		// static
