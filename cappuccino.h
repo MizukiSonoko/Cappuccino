@@ -764,30 +764,23 @@ namespace Cappuccino{
 		}
 	}
 
-#if defined(__APPLE__) || defined(__GNUC__) && __GNUC__ * 10  + __GNUC_MINOR__ >= 49	
-	std::regex re( R"(<\w+>)");
-    std::smatch m;
-#endif    
-
 	static Response create_response(char* req) noexcept{
 		std::unique_ptr<Request> request = Request().factory(string(req));
 
 		auto pos(routes_.find(request->url()));
 		if( pos != routes_.end()){
-			auto res = pos->second(request.get());
-			//Logger::d("-------");
-			//Logger::d(res);
-			return res;
-		}		
+			return pos->second(request.get());
+		}
+
 		// static
 		pos = static_routes_.find(request->url());
 		if( pos != static_routes_.end()){
 			return pos->second(request.get());
 		}		
 
-		auto posir = other_routes_.find(404);
-		if( posir != other_routes_.end()){
-			return posir->second(request.get());
+		auto pos_other = other_routes_.find(404);
+		if( pos_other != other_routes_.end()){
+			return pos_other->second(request.get());
 		}
 		return Response();
 	}
@@ -802,11 +795,7 @@ namespace Cappuccino{
 			Logger::e("receive error!");
 			exit(EXIT_FAILURE);
 		}
-		bool isbody = false;
 		do{
-			if (!isbody && strstr(buf, "\r\n")) {
-				isbody = true;
-			}
 			if(strstr(buf, "\r\n")){
 				break;
 			}
@@ -920,5 +909,8 @@ namespace Cappuccino{
 namespace Cocoa{
 	class App{};
 
+    bool test(){
+        return true;
+    }
 };
 
