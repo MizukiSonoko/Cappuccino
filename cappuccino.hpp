@@ -35,38 +35,41 @@ namespace Logger{
 
 	static bool debug_ = false;
 
-   	static void d(string msg){
+   	static void d(const string msg){
 		if(debug_)
 	   		std::cout<< msg << "\n";
    	}
 
-   	static void safe(string msg){
+   	static void safe(const string msg){
    		std::cerr << "\x1b[32m"<< msg << "\x1b[39m\n";
    	}
 
    	template<typename T>
-   	static void i(T msg){
+   	static void i(const T msg){
    		std::cout<< msg << "\n";
    	}
-   	static void e(string msg){
+   	static void e(const string msg){
    		std::cout<<"\033[1;31m"<< msg << "\033[0m\n";
    	} 
 }
 
 
 namespace Cappuccino{
-	
+
 	using string = std::string;
 
+	struct{
+		int port_{ 1204 };
+		int sockfd_{ 0 };
+		int sessionfd_{ 0 };
+    	fd_set mask1fds, mask2fds;
 
-	static int port_{ 1204 };
-	static int sockfd_{ 0 };
-	static int sessionfd_{ 0 };
-    fd_set mask1fds, mask2fds;
+		string view_root_{ "" };
+		string static_root_{ "public" };
 
-
-	static string view_root_{ "" };
-	static string static_root_{ "public" };
+	} Context;
+	
+	shared_ptr<Context> context;	
 
 	namespace security{
 
@@ -85,7 +88,6 @@ namespace Cappuccino{
 				while( pos != std::string::npos ){
 				    str->replace( pos, it->first.length(), it->second );
 				    pos = str->find( it->first, pos + it->second.length() );
-
 				    if(pos == 0) break;
 				}
 		    }
@@ -504,163 +506,8 @@ namespace Cappuccino{
 				type_ = "text/html";
             }
 		}
-
 		std::pair<string,string> file2str() const noexcept{
 			return make_pair( data_, type_);
-		}
-
-	};
-	class ResponseBuilder{
-
-		class Headers{
-			int status_code_;
-			string message_;
-			string version_;
-			std::unordered_map<string, string> params_;
-			std::unordered_map<string, string> cookie_;
-		  public:
-		  	void set_status_code(int code) noexcept{
-				status_code_ = code;
-		  	}
-		  	int status_code() noexcept{
-				return status_code_;
-		  	}
-			void set_message(string msg) noexcept{
-				message_ = msg;
-			}
-			string message() noexcept{
-				return message_;
-			}
-			void set_version(string ver) noexcept{
-				version_ = ver;
-			}
-			string version() noexcept{
-				return version_;
-			}
-			std::unordered_map<string, string> params() noexcept{
-				return params_;
-			}
-
-			// Forbidden override :+1:
-			void add_param(string key, string val) noexcept{
-				auto pos(params_.find(key));
-				if( pos != params_.end()){
-					params_.insert( make_pair(key,val));				
-				}
-			}
-			void add_cookie(string key, string val) noexcept{
-				auto pos(cookie_.find(key));
-				if( pos != cookie_.end()){
-					cookie_.insert( make_pair(key,val));				
-				}
-			}
-
-			operator string() const{
-				string str = "HTTP/1.1 ";
-				std::stringstream ss;
-				ss << status_code_;
-				str += ss.str();
-				str += " ";
-				str += message_ + "\n";
-				for(auto value = params_.begin(); value != params_.end(); value++){
-					str += value->first + ": " + value->second + "\n";
-				}
-				if(cookie_.size() != 0){
-					str += "Set-Cookie: ";
-					for(auto value = cookie_.begin(); value != cookie_.end(); value++){
-						str += value->first + "=" + value->second + "; ";
-					}
-					str += "\n";		
-				}
-				str += "\n";
-				return str;
-			}
-		};
-
-		std::unique_ptr<Headers> headers_;
-		string body_;
-		string filename_;
-		FileLoader file_loader_;
-		Request::Method method_;
-	  public:
-
-	  	ResponseBuilder(Request* request):
-	  		headers_(new Headers()),
-	  		body_(""),
-	  		file_loader_("")
-  		{
-  			method_ = request->method();
-  			headers_->set_version(request->protocol());
-  		}
-
-		ResponseBuilder& header_param(string name,string value) noexcept{
-			headers_->add_param( name, value);
-		    return *this;
-		}
-
-		ResponseBuilder& status(int code, string msg) noexcept{
-		    headers_->set_status_code(code);
-		    headers_->set_message(msg);
-		    return *this;
-		}
-
-		ResponseBuilder& http_version(string val) noexcept{
-		    headers_->set_version(val);
-		    return *this;
-		}
-
-		ResponseBuilder& param(string key,string val) noexcept{
-		    headers_->add_param( key, val);
-		    return *this;			
-		}
-
-		ResponseBuilder& cookie(string key,string val) noexcept{
-			headers_->add_cookie( key, val);
-		    return *this;
-		}
-
-		
-		ResponseBuilder& text(const string& txt) noexcept{
-			body_ = txt;
-			return *this;
-		}
-
-		ResponseBuilder& file(FileLoader fileLoader) noexcept{
-			file_loader_ = fileLoader;
-			return *this;
-		}
-
-		Response build(){
-			if(method_ == Request::Method::HEAD){
-				return Response(
-						headers_->status_code(),
-						headers_->message(),
-						headers_->version(),
-						headers_->params(),
-						string(*headers_)
-				);
-			}
-			if(file_loader_.filename() != ""){		
-				if(!file_loader_.loaded())	
-					file_loader_.preload();
-
-				auto body_pair = file_loader_.file2str();
-				headers_->add_param( "Content-type", body_pair.second);
-				return Response(
-						headers_->status_code(),
-						headers_->message(),
-						headers_->version(),
-						headers_->params(),
-						string(*headers_) + body_pair.first);
-			}else{				
-				headers_->add_param( "Content-type", "text/html");
-				return Response(
-						headers_->status_code(),
-						headers_->message(),
-						headers_->version(),
-						headers_->params(),
-						string(*headers_) + body_);
-			}
 		}
 	};
 
