@@ -239,167 +239,6 @@ namespace Cappuccino{
 		}
 	}
 
-	class Request{
-  	  public:
-		enum class Method{
-			GET,
-			POST,
-			PUT,
-			DELETE,
-			HEAD,
-			OPTION
-		};
-
-	  private:
-		std::unordered_map<string,string> headers_;
-		std::unordered_map<string,string> get_params_;
-		std::unordered_map<string,string> post_params_;
-		std::unordered_map<string,string> cookie_params_;
-
-		string url_;
-		string protocol_;
-		Method method_;		
-
-		void set_method(const string& m) noexcept{
-			if(m == "GET"){
-				method_ = Method::GET;
-			}else if(m == "POST"){
-				method_ = Method::POST;
-			}else if(m == "PUT"){
-				method_ = Method::PUT;
-			}else if(m == "DELETE"){
-				method_ = Method::DELETE;
-			}else if(m == "HEAD"){
-				method_ = Method::HEAD;
-			}else if(m == "OPTION"){
-				method_ = Method::OPTION;
-			}
-		}
-
-		void set_url(const string& u) noexcept{
-			url_ = u;
-		}
-
-		void set_protocol(const string& p) noexcept{
-			protocol_ = p;
-		}
-
-	  public:
-	  	string protocol() const noexcept{
-	  		return protocol_;
-	  	}
-		string url() const noexcept{
-			return url_;
-		}
-		Method method() const noexcept{
-			return method_;
-		}
-		std::unordered_map<string,string> headers() const noexcept{
-			return headers_;
-		}		
-
-		string post(const string& key) const noexcept{
-			auto pos(post_params_.find(key));
-			if( pos != post_params_.cend() ){
-				return pos->second;
-			}
-			return "Invalid param name";
-		}
-
-		string get(const string& key) const noexcept{
-			auto pos(get_params_.find(key));
-			if( pos != get_params_.cend() ){
-				return pos->second;
-			}
-			return "Invalid param name";
-		}
-
-		string header(const string& key) const noexcept{
-			auto pos(headers_.find(key));
-			if( pos != headers_.cend() ){
-				return pos->second;
-			}
-			return "Invalid param name";
-		}
-
-		Request() : url_("/"), protocol_("HTTP/1.1"), method_(Method::GET){}
-
-		static std::unique_ptr<Request> factory(string request) noexcept{
-			auto res = std::unique_ptr<Request>(new Request());
-
-			auto lines = utils::split(request,"\n");			
-			auto line_size = lines.size();
-			if(line_size == 1) return res;
-
-			auto request_head = utils::split(lines[0]," ");		
-			res->set_method(request_head[0]);
-			// get url paramaters.
-			auto url_params = utils::split(request_head[1],"?");	
-
-			Logger::d(request_head[0] +" "+ request_head[1] +" "+ request_head[2]);
-
-			res->set_url(url_params[0]);
-			res->set_protocol(request_head[2]);
-
-			for(int i = 1;i < line_size; i++){
-				Logger::d(lines[i]);
-				auto key_val = utils::split(lines[i],": ");
-				if(key_val.size() == 2){
-					res->headers_.insert( make_pair( key_val[0], key_val[1]));
-				}else{
-					// POST paramaters
-					auto param_key_val = utils::split(lines[i],"=");
-					if(param_key_val.size() == 2){
-						res->post_params_.insert( make_pair( param_key_val[0], utils::url_decode(param_key_val[1])));
-					}
-				}
-			}
-			if(url_params.size() == 2){
-				// GET paramaters
-				auto params = utils::split(url_params[1],"&");
-				for(auto param : params){
-					auto param_key_val = utils::split( param,"=");
-					if(param_key_val.size() == 2){
-						res->get_params_.insert( make_pair( param_key_val[0], utils::url_decode(param_key_val[1])));
-					}
-				}
-			}
-			return res;
-		}
-	};
-
-	// This class is only wapper for response string. 
-	class Response{
-	  protected:
-	  	string response_;
-	  	int status_code_;
-		string message_;
-		string version_;
-		std::unordered_map<string, string> params_;
-	  public:
-		explicit Response():
-			response_(""),
-			status_code_(501),
-			message_("Not Implemented"),
-			version_("1.1"){}
-
-		explicit Response(
-				const int status_code,
-				const string message,
-				const string version,
-				const std::unordered_map<string, string> params,
-				const string& res):
-			response_(res),
-			status_code_(status_code),
-			message_(message),
-			version_(version),
-			params_(params){}
-
-		operator string() const{
-			return response_;
-		}
-	};
-
 	class FileLoader{
 
 		std::unordered_map<string, string>* replaces_;
@@ -511,6 +350,141 @@ namespace Cappuccino{
 		}
 	};
 
+
+
+	class Request{
+  	  public:
+		enum class Method{
+			GET,
+			POST,
+			PUT,
+			DELETE,
+			HEAD,
+			OPTION
+		};
+
+	  private:
+		std::unordered_map<string,string> headers_;
+		std::unordered_map<string,string> get_params_;
+		std::unordered_map<string,string> post_params_;
+		std::unordered_map<string,string> cookie_params_;
+
+		string url_;
+		string protocol_;
+		Method method_;		
+
+		void set_method(string m) noexcept{
+			if(move(m) == "GET"){
+				method_ = Method::GET;
+			}else if(move(m) == "POST"){
+				method_ = Method::POST;
+			}else if(move(m) == "PUT"){
+				method_ = Method::PUT;
+			}else if(move(m) == "DELETE"){
+				method_ = Method::DELETE;
+			}else if(move(m) == "HEAD"){
+				method_ = Method::HEAD;
+			}else if(move(m) == "OPTION"){
+				method_ = Method::OPTION;
+			}
+		}
+
+		void set_url(string u) noexcept{
+			url_ = move(u);
+		}
+
+		void set_protocol(string p) noexcept{
+			protocol_ = move(p);
+		}
+
+	  public:
+	  	string protocol() const noexcept{
+	  		return protocol_;
+	  	}
+		string url() const noexcept{
+			return url_;
+		}
+		Method method() const noexcept{
+			return method_;
+		}
+		std::unordered_map<string,string> headers() const noexcept{
+			return headers_;
+		}
+
+		string post(string key) const noexcept{
+			auto pos(post_params_.find(move(key)));
+			if( pos != post_params_.cend() ){
+				return pos->second;
+			}
+			return "Invalid param name";
+		}
+
+		string get(string key) const noexcept{
+			auto pos(get_params_.find(move(key)));
+			if( pos != get_params_.cend() ){
+				return pos->second;
+			}
+			return "Invalid param name";
+		}
+
+		string header(const string& key) const noexcept{
+			auto pos(headers_.find(key));
+			if( pos != headers_.cend() ){
+				return pos->second;
+			}
+			return "Invalid param name";
+		}
+
+		Request() : url_("/"), protocol_("HTTP/1.1"), method_(Method::GET){}
+
+		static std::unique_ptr<Request> factory(string request) noexcept{
+			auto res = std::unique_ptr<Request>(new Request());
+
+			auto lines = utils::split(request,"\n");			
+			auto line_size = lines.size();
+			if(line_size == 1) return res;
+
+			auto request_head = utils::split(lines[0]," ");		
+			res->set_method(request_head[0]);
+			// get url paramaters.
+			auto url_params = utils::split(request_head[1],"?");	
+
+			Logger::d(request_head[0] +" "+ request_head[1] +" "+ request_head[2]);
+
+			res->set_url(url_params[0]);
+			res->set_protocol(request_head[2]);
+
+			for(int i = 1;i < line_size; i++){
+				Logger::d(lines[i]);
+				auto key_val = utils::split(lines[i],": ");
+				if(key_val.size() == 2){
+					res->headers_.insert( make_pair( key_val[0], key_val[1]));
+				}else{
+					// POST paramaters
+					auto param_key_val = utils::split(lines[i],"=");
+					if(param_key_val.size() == 2){
+						res->post_params_.insert( make_pair( param_key_val[0], utils::url_decode(param_key_val[1])));
+					}
+				}
+			}
+			if(url_params.size() == 2){
+				// GET paramaters
+				auto params = utils::split(url_params[1],"&");
+				for(auto param : params){
+					auto param_key_val = utils::split( param,"=");
+					if(param_key_val.size() == 2){
+						res->get_params_.insert( make_pair( param_key_val[0], utils::url_decode(param_key_val[1])));
+					}
+				}
+			}
+			return res;
+		}
+	};
+
+	class Response{
+		
+	};
+
 	std::unordered_map<string, std::function<Response(Request*)>> routes_;
 	
 	std::unordered_map< int, std::function<Response(Request*)>> other_routes_;
@@ -585,30 +559,6 @@ namespace Cappuccino{
 
 	    FD_ZERO(&mask1fds);
 	    FD_SET(sockfd_, &mask1fds);
-	}
-
-	namespace Regex{
-		std::vector<string> findParent(string text) noexcept{
-			std::vector<string> res;
-			string tmp = "";
-			bool isIn = false;
-			for(int i = 0; i< text.size(); ++i){
-				if(text[i] == '<'){
-					isIn = true;
-					continue;
-				}
-				if(text[i] == '>'){
-					isIn = false;
-					res.push_back("<"+tmp+">");
-					tmp = "";
-				}
-
-				if(isIn){
-					tmp += text[i];
-				}
-			}
-			return res;
-		}
 	}
 
 	static Response create_response(char* req) noexcept{
