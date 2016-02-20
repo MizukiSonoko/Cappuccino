@@ -62,7 +62,7 @@ namespace Cappuccino{
 	static int port_{ 1204 };
 	static int sockfd_{ 0 };
 	static int sessionfd_{ 0 };
-    fd_set mask1fds, mask2fds;
+    fd_set context->mask1fds, mask2fds;
 
 
 	static string view_root_{ "" };
@@ -664,17 +664,17 @@ namespace Cappuccino{
 		}
 	};
 
-	std::unordered_map<string, std::function<Response(Request*)>> routes_;
+	std::unordered_map<string, std::function<Response*(Request*)>> routes_;
 	
-	std::unordered_map< int, std::function<Response(Request*)>> other_routes_;
+	std::unordered_map< int, std::function<Response*(Request*)>> other_routes_;
 
-	std::unordered_map<string, std::function<Response(Request*)>> static_routes_;
+	std::unordered_map<string, std::function<Response*(Request*)>> static_routes_;
 
-	static void add_other_route(int code, const std::function<Response(Request*)>& function) noexcept{
+	static void add_other_route(int code, const std::function<Response*(Request*)>& function) noexcept{
 		other_routes_.insert( make_pair( code, function));
 	}
 
-	static void add_route(const string& route,const std::function<Response(Request*)>& function) noexcept{
+	static void add_route(const string& route,const std::function<Response*(Request*)>& function) noexcept{
 		routes_.insert( make_pair(route, function));
 	}
 
@@ -736,8 +736,8 @@ namespace Cappuccino{
 			exit(EXIT_FAILURE);
 		}
 
-	    FD_ZERO(&mask1fds);
-	    FD_SET(sockfd_, &mask1fds);
+	    FD_ZERO(&context->mask1fds);
+	    FD_SET(sockfd_, &context->mask1fds);
 	}
 
 	namespace Regex{
@@ -874,14 +874,14 @@ namespace Cappuccino{
 	        tv.tv_sec = 0;
 	        tv.tv_usec = 0;
 
-	        memcpy(&mask2fds, &mask1fds, sizeof(mask1fds));
+	        memcpy(&mask2fds, &context->mask1fds, sizeof(context->mask1fds));
 
 	        int select_result = select(FD_SETSIZE, &mask2fds, (fd_set *)0, (fd_set *)0, &tv);
 	        if(select_result < 1) {
 	            for(fd = 0; fd < FD_SETSIZE; fd++) {
 	                if(cd[fd] == 1) {
 	                    close(fd);
-	                    FD_CLR(fd, &mask1fds);
+	                    FD_CLR(fd, &context->mask1fds);
 	                    cd[fd] = 0;
 	                }
 	            }
@@ -894,11 +894,11 @@ namespace Cappuccino{
 						int len = sizeof(client);
 	                    int clientfd = accept(sockfd_, 
 	                        (struct sockaddr *)&client,(socklen_t *) &len);
-	                        FD_SET(clientfd, &mask1fds);
+	                        FD_SET(clientfd, &context->mask1fds);
 	                }else {
 	                    if(cd[fd] == 1) {
 	                        close(fd);
-	                        FD_CLR(fd, &mask1fds);
+	                        FD_CLR(fd, &context->mask1fds);
 	                        cd[fd] = 0;
 	                    } else {
 							string response = receive_process(fd);

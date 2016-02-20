@@ -22,6 +22,7 @@
 #include <regex>
 #endif
 
+#include <memory>
 #include <vector>
 #include <fstream>
 #include <future>
@@ -58,7 +59,7 @@ namespace Cappuccino{
 
 	using string = std::string;
 
-	struct{
+	struct Context{
 		int port_{ 1204 };
 		int sockfd_{ 0 };
 		int sessionfd_{ 0 };
@@ -67,9 +68,9 @@ namespace Cappuccino{
 		string view_root_{ "" };
 		string static_root_{ "public" };
 
-	} Context;
+	};
 	
-	shared_ptr<Context> context;	
+	std::shared_ptr<Context> context;	
 
 	namespace security{
 
@@ -216,8 +217,8 @@ namespace Cappuccino{
 	namespace signal_utils{
 		static void signal_handler(int SignalName){
 			Logger::i("\nserver terminated!\n");		
-			close(sessionfd_);
-			close(sockfd_);
+			close(context->sessionfd_);
+			close(context->sockfd_);
 			exit(0);
 			return;
 		}
@@ -262,7 +263,7 @@ namespace Cappuccino{
 			auto filename = aFilename;
 			std::ifstream ifs( filename, std::ios::in | std::ios::binary);
 			if(ifs.fail()){
-				auto view_file = view_root_ + "/" + aFilename;
+				auto view_file = context->view_root_ + "/" + aFilename;
 			    ifs.open(view_file, std::ios::in | std::ios::binary);
 				if(ifs.fail()){
 					throw std::runtime_error("No such file or directory \""+ filename +"\" and "+view_file+"\"\n");
@@ -482,14 +483,40 @@ namespace Cappuccino{
 	};
 
 	class Response{
-		
+		int st;
+		string filename;
+		Request req;
+	   public:
+
+	   	Response(){
+	   		st = 500;
+	   	}
+
+	   	Response(Request re){
+	   		req = re;
+	   	}
+
+	   	Response* status(int sts){
+	   		st = sts;
+	   		return this;
+	   	}
+
+	   	Response* file(std::string fnm){
+	   		filename = move(fnm);
+	   		return this;
+	   	}
+
+		operator string() const{
+			// TODO
+			return "";
+		}
 	};
 
 	std::unordered_map<string, std::function<Response(Request*)>> routes_;
 	
 	std::unordered_map< int, std::function<Response(Request*)>> other_routes_;
 
-	std::unordered_map<string, std::function<Response(Request*)>> static_routes_;
+	std::unordered_map<string, std::function<Response*(Request*)>> static_routes_;
 
 	static void add_other_route(int code, const std::function<Response(Request*)>& function) noexcept{
 		other_routes_.insert( make_pair( code, function));
@@ -500,11 +527,11 @@ namespace Cappuccino{
 	}
 
 	static void add_static_root(const string& path) noexcept{
-		static_root_ = path;
+		context->static_root_ = path;
 	}
 
 	static void add_view_root(const string& path) noexcept{
-		view_root_ = path;
+		context->view_root_ = path;
 	}
 
 	static void set_argument_value(int argc, char *argv[]) noexcept{
@@ -515,7 +542,7 @@ namespace Cappuccino{
 				Logger::debug_ = true;
 				break;
 			case 'p':
-				port_ = atoi(optarg);
+				context->port_ = atoi(optarg);
 				break;
 			}
 		}
@@ -524,41 +551,40 @@ namespace Cappuccino{
 		}else{			
 			Logger::i("mode: product");
 		}
-		Logger::d("port:" + std::to_string(port_));
 	}
 
 	static void init_socket(){
 	    struct sockaddr_in server;
-		if ((sockfd_ = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
+		if ((context->sockfd_ = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
 			Logger::e("socket create error");
 			exit(EXIT_FAILURE);
 		}
 		memset( &server, 0, sizeof(server));
 		server.sin_family = AF_INET;	
 		server.sin_addr.s_addr = INADDR_ANY;
-		server.sin_port = htons(port_);
+		server.sin_port = htons(context->port_);
 
 		char opt = 1;
-		setsockopt(sockfd_, SOL_SOCKET, SO_REUSEADDR, (char *)&opt, sizeof(opt));
+		setsockopt(context->sockfd_, SOL_SOCKET, SO_REUSEADDR, (char *)&opt, sizeof(opt));
 
 		int temp = 1;
-  		if(setsockopt(sockfd_, SOL_SOCKET, SO_REUSEADDR,
+  		if(setsockopt(context->sockfd_, SOL_SOCKET, SO_REUSEADDR,
 	            &temp, sizeof(temp))){
 		    Logger::e("setsockopt() failed");
 		}
 		
-		if (bind(sockfd_, (struct sockaddr *) &server, sizeof(server)) < 0) {
+		if (bind(context->sockfd_, (struct sockaddr *) &server, sizeof(server)) < 0) {
 			Logger::e("socket bind error");
 			exit(EXIT_FAILURE);
 		}
 
-		if(listen(sockfd_,  MAX_LISTEN) < 0) {
+		if(listen(context->sockfd_,  MAX_LISTEN) < 0) {
 			Logger::e("listen error");
 			exit(EXIT_FAILURE);
 		}
 
-	    FD_ZERO(&mask1fds);
-	    FD_SET(sockfd_, &mask1fds);
+	    FD_ZERO(&context->mask1fds);
+	    FD_SET(context->sockfd_, &context->mask1fds);
 	}
 
 	static Response create_response(char* req) noexcept{
@@ -626,18 +652,17 @@ namespace Cappuccino{
 			static_file.preload();
 			static_routes_.insert( make_pair(
 				"/" + directory, 
-					[static_file](Request* request) -> Response{
-						return Cappuccino::ResponseBuilder(request)
+					[static_file](Request* request) -> Response*{
+						return Response(request)
 							.status(200,"OK")
-							.file(static_file)
-							.build();
+							.file(static_file);
 					}
 				));
 		}
 	}
 
 	static void load_static_files() noexcept{
-		load(static_root_,"");
+		load(context->static_root_,"");
 	}
 
 	static void run(){
@@ -645,7 +670,7 @@ namespace Cappuccino{
 		signal_utils::init_signal();
 		load_static_files();
 
-		Logger::i("Running on http://localhost:" + std::to_string(port_) + "/");
+		Logger::i("Running on http://localhost:" + std::to_string(context->port_) + "/");
 
 	    int cd[FD_SETSIZE];
 		struct sockaddr_in client;
@@ -660,31 +685,31 @@ namespace Cappuccino{
 	        tv.tv_sec = 0;
 	        tv.tv_usec = 0;
 
-	        memcpy(&mask2fds, &mask1fds, sizeof(mask1fds));
+	        memcpy(&context->mask2fds, &context->mask1fds, sizeof(context->mask1fds));
 
-	        int select_result = select(FD_SETSIZE, &mask2fds, (fd_set *)0, (fd_set *)0, &tv);
+	        int select_result = select(FD_SETSIZE, &context->mask2fds, (fd_set *)0, (fd_set *)0, &tv);
 	        if(select_result < 1) {
 	            for(fd = 0; fd < FD_SETSIZE; fd++) {
 	                if(cd[fd] == 1) {
 	                    close(fd);
-	                    FD_CLR(fd, &mask1fds);
+	                    FD_CLR(fd, &context->mask1fds);
 	                    cd[fd] = 0;
 	                }
 	            }
 	            continue;
 	        }
 	        for(fd = 0; fd < FD_SETSIZE; fd++){
-	            if(FD_ISSET(fd,&mask2fds)) {
-	                if(fd == sockfd_) {
+	            if(FD_ISSET(fd,&context->mask2fds)) {
+	                if(fd == context->sockfd_) {
 	                	memset( &client, 0, sizeof(client));
 						int len = sizeof(client);
-	                    int clientfd = accept(sockfd_, 
+	                    int clientfd = accept(context->sockfd_, 
 	                        (struct sockaddr *)&client,(socklen_t *) &len);
-	                        FD_SET(clientfd, &mask1fds);
+	                        FD_SET(clientfd, &context->mask1fds);
 	                }else {
 	                    if(cd[fd] == 1) {
 	                        close(fd);
-	                        FD_CLR(fd, &mask1fds);
+	                        FD_CLR(fd, &context->mask1fds);
 	                        cd[fd] = 0;
 	                    } else {
 							string response = receive_process(fd);
@@ -698,7 +723,7 @@ namespace Cappuccino{
 	}
 
 	static void Cappuccino(int argc, char *argv[]) {
-		port_ = 1204;
+		context->port_ = 1204;
 		set_argument_value(argc, argv);
 	}
 };
