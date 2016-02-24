@@ -33,30 +33,30 @@
 
 namespace Cappuccino{
 	
-	using string = std::string;
 
-	struct Context
-	{
+	using namespace std;
+	using string = string;
+
+	struct {
 		int port_{ 1204 };
 		int sockfd_{ 0 };
 		int sessionfd_{ 0 };
 	    fd_set mask1fds, mask2fds;
 
-		string view_root_{ "" };
-		string static_root_{ "public" };
-
-	};
+		shared_ptr<string> view_root_{ "" };
+		shared_ptr<string> static_root_{ "public" };
+	} context;
 
 	namespace signal_utils{
-		static void signal_handler(int SignalName){
+
+		void signal_handler(int signal){
 			Logger::i("\nserver terminated!\n");		
-			close(sessionfd_);
-			close(sockfd_);
+			close(context.sessionfd_);
+			close(context.sockfd_);
 			exit(0);
-			return;
 		}
 
-		static void signal_handler_child(int SignalName){
+		void signal_handler_child(int signal){
 			while(waitpid(-1,NULL,WNOHANG)>0){}
 	        signal(SIGCHLD, Cappuccino::signal_utils::signal_handler_child);
 		}
