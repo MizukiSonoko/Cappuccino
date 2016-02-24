@@ -61,7 +61,7 @@ namespace Cappuccino{
 	        signal(SIGCHLD, Cappuccino::signal_utils::signal_handler_child);
 		}
 
-		static void init_signal(){
+		void init_signal(){
 			if (signal(SIGINT, Cappuccino::signal_utils::signal_handler) == SIG_ERR) {
 				Logger::e("signal setting error");
 				exit(1);
@@ -73,7 +73,7 @@ namespace Cappuccino{
 		}
 	}
 
-	static void set_argument_value(int argc, char *argv[]) noexcept{
+	void option(int argc, char *argv[]) noexcept{
 		char result;
 		while((result = getopt(argc,argv,"dp:")) != -1){
 			switch(result){
@@ -93,7 +93,7 @@ namespace Cappuccino{
 		Logger::d("port:" + std::to_string(port_));
 	}
 
-	static void init_socket(){
+	void init_socket(){
 	    struct sockaddr_in server;
 		if ((sockfd_ = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
 			Logger::e("socket create error");
@@ -156,7 +156,7 @@ namespace Cappuccino{
     std::smatch m;
 #endif    
 
-	static Response create_response(char* req) noexcept{
+	RuleResponse create_response(char* req) noexcept{
 		std::unique_ptr<Request> request = Request().factory(string(req));
 
 		auto pos(routes_.find(request->url()));
@@ -179,7 +179,7 @@ namespace Cappuccino{
 		return Response();
 	}
 
-	static string receive_process(int sessionfd){
+	Rulestring receive_process(int sessionfd){
 		char buf[BUF_SIZE] = {};
 		char method[BUF_SIZE] = {};
 		char url[BUF_SIZE] = {};
@@ -306,6 +306,5 @@ namespace Cappuccino{
 
 namespace Cocoa{
 	class App{};
-
 };
 
