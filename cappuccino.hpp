@@ -29,41 +29,36 @@
 #define BUF_SIZE 4096
 #define MAX_LISTEN 128
 
-
-
-
 namespace Cappuccino{
 	
 	struct {
-		int port_{ 1204 };
-		int sockfd_{ 0 };
-		int sessionfd_{ 0 };
+		int port = 1204;
+		int sockfd = 0;
+		int sessionfd = 0;
 	    fd_set mask1fds, mask2fds;
 
 		std::shared_ptr<std::string> view_root;
 		std::shared_ptr<std::string> static_root;
-
 	} context;
-
 
 	namespace signal_utils{
 
 		void signal_handler(int signal){
-			close(context.sessionfd_);
-			close(context.sockfd_);
+			close(context.sessionfd);
+			close(context.sockfd);
 			exit(0);
 		}
 
-		static void signal_handler_child(int SignalName){
+		void signal_handler_child(int SignalName){
 			while(waitpid(-1,NULL,WNOHANG)>0){}
 	        signal(SIGCHLD, signal_utils::signal_handler_child);
 		}
 
 		void init_signal(){
-			if (signal(SIGINT, signal_utils::signal_handler) == SIG_ERR) {
+			if(signal(SIGINT, signal_utils::signal_handler) == SIG_ERR){
 				exit(1);
 			}
-			if (signal(SIGCHLD, signal_utils::signal_handler_child) == SIG_ERR) {
+			if(signal(SIGCHLD, signal_utils::signal_handler_child) == SIG_ERR){
 				exit(1);
 			}
 		}
@@ -72,32 +67,32 @@ namespace Cappuccino{
 
 	void init_socket(){
 	    struct sockaddr_in server;
-		if ((context.sockfd_ = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
+		if((context.sockfd = socket(AF_INET, SOCK_STREAM, 0)) < 0){
 			exit(EXIT_FAILURE);
 		}
 		memset( &server, 0, sizeof(server));
 		server.sin_family = AF_INET;	
 		server.sin_addr.s_addr = INADDR_ANY;
-		server.sin_port = htons(context.port_);
+		server.sin_port = htons(context.port);
 
 		char opt = 1;
-		setsockopt(context.sockfd_, SOL_SOCKET, SO_REUSEADDR, (char *)&opt, sizeof(opt));
+		setsockopt(context.sockfd, SOL_SOCKET, SO_REUSEADDR, (char *)&opt, sizeof(opt));
 
 		int temp = 1;
-  		if(setsockopt(context.sockfd_, SOL_SOCKET, SO_REUSEADDR,
+  		if(setsockopt(context.sockfd, SOL_SOCKET, SO_REUSEADDR,
 	            &temp, sizeof(temp))){
 		}
 		
-		if (bind(context.sockfd_, (struct sockaddr *) &server, sizeof(server)) < 0) {
+		if (bind(context.sockfd, (struct sockaddr *) &server, sizeof(server)) < 0) {
 			exit(EXIT_FAILURE);
 		}
 
-		if(listen(context.sockfd_,  MAX_LISTEN) < 0) {
+		if(listen(context.sockfd,  MAX_LISTEN) < 0) {
 			exit(EXIT_FAILURE);
 		}
 
 	    FD_ZERO(&context.mask1fds);
-	    FD_SET(context.sockfd_, &context.mask1fds);
+	    FD_SET(context.sockfd, &context.mask1fds);
 	}
 
 
@@ -111,41 +106,12 @@ namespace Cappuccino{
 			case 'd':
 				break;
 			case 'p':
-				context.port_ = atoi(optarg);
+				context.port = atoi(optarg);
 				break;
 			}
 		}
 	}
 
-
-	namespace Regex{
-		std::vector<string> findParent(string text) noexcept{
-			std::vector<string> res;
-			string tmp = "";
-			bool isIn = false;
-			for(int i = 0; i< text.size(); ++i){
-				if(text[i] == '<'){
-					isIn = true;
-					continue;
-				}
-				if(text[i] == '>'){
-					isIn = false;
-					res.push_back("<"+tmp+">");
-					tmp = "";
-				}
-
-				if(isIn){
-					tmp += text[i];
-				}
-			}
-			return res;
-		}
-	}
-
-#if defined(__APPLE__) || defined(__GNUC__) && __GNUC__ * 10  + __GNUC_MINOR__ >= 49	
-	std::regex re( R"(<\w+>)");
-    std::smatch m;
-#endif    
     class Response{
       public:
       	operator string(){
@@ -168,7 +134,7 @@ namespace Cappuccino{
 		}
 		bool isbody = false;
 		do{
-			if (!isbody && strstr(buf, "\r\n")) {
+			if(!isbody && strstr(buf, "\r\n")) {
 				isbody = true;
 			}
 			if(strstr(buf, "\r\n")){
@@ -177,7 +143,7 @@ namespace Cappuccino{
 			if (strlen(buf) >= sizeof(buf)) {
 				memset(&buf, 0, sizeof(buf));
 			}
-		} while (read(sessionfd, buf+strlen(buf), sizeof(buf) - strlen(buf)) > 0);
+		}while(read(sessionfd, buf+strlen(buf), sizeof(buf) - strlen(buf)) > 0);
 		return create_response(buf);	
 	}
 	
@@ -256,10 +222,10 @@ namespace Cappuccino{
 	        }
 	        for(fd = 0; fd < FD_SETSIZE; fd++){
 	            if(FD_ISSET(fd,&context.mask2fds)) {
-	                if(fd == context.sockfd_) {
+	                if(fd == context.sockfd) {
 	                	memset( &client, 0, sizeof(client));
 						int len = sizeof(client);
-	                    int clientfd = accept(context.sockfd_, (struct sockaddr *)&client,(socklen_t *) &len);
+	                    int clientfd = accept(context.sockfd, (struct sockaddr *)&client,(socklen_t *) &len);
                         FD_SET(clientfd, &context.mask1fds);
 	                }else {
 	                    if(cd[fd] == 1) {
@@ -278,7 +244,7 @@ namespace Cappuccino{
 	}
 
 	void Cappuccino(int argc, char *argv[]) {
-		context.port_ = 1204;
+		context.port = 1204;
 		option(argc, argv);
 	}
 };
