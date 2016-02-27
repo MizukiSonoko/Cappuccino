@@ -17,6 +17,7 @@
 #include <algorithm>
 #include <iostream>
 #include <sstream>
+#include <map>
 
 #if defined(__APPLE__) || defined(__GNUC__) && __GNUC__ * 10  + __GNUC_MINOR__ >= 49
 #include <regex>
@@ -31,6 +32,9 @@
 
 namespace Cappuccino{
 	
+	class Request;
+	class Response;
+
 	struct {
 		int port = 1204;
 		int sockfd = 0;
@@ -39,6 +43,12 @@ namespace Cappuccino{
 
 		std::shared_ptr<std::string> view_root;
 		std::shared_ptr<std::string> static_root;
+
+		std::map<std::string,
+			std::function<
+				std::unique_ptr<Response>(std::unique_ptr<Request>)
+			>
+		> routes;
 	} context;
 
 	namespace signal_utils{
@@ -64,6 +74,23 @@ namespace Cappuccino{
 		}
 	}
 
+	namespace utils{
+		std::vector<std::string> split(const std::string& str, std::string delim) noexcept{
+			std::vector<std::string> result;
+		    std::string::size_type pos = 0;
+		    while(pos != std::string::npos ){
+		        std::string::size_type p = str.find(delim, pos);
+		        if(p == std::string::npos){
+		            result.push_back(str.substr(pos));
+		            break;
+		        }else{
+		            result.push_back(str.substr(pos, p - pos));
+		        }
+		        pos = p + delim.size();
+		    }
+		    return result;
+		}
+	};
 
 	void init_socket(){
 	    struct sockaddr_in server;
@@ -76,11 +103,11 @@ namespace Cappuccino{
 		server.sin_port = htons(context.port);
 
 		char opt = 1;
-		setsockopt(context.sockfd, SOL_SOCKET, SO_REUSEADDR, (char *)&opt, sizeof(opt));
+		setsockopt(context.sockfd, SOL_SOCKET, SO_REUSEADDR, (char *)&opt, sizeof(char));
 
 		int temp = 1;
   		if(setsockopt(context.sockfd, SOL_SOCKET, SO_REUSEADDR,
-	            &temp, sizeof(temp))){
+	        &temp, sizeof(int))){
 		}
 		
 		if (bind(context.sockfd, (struct sockaddr *) &server, sizeof(server)) < 0) {
@@ -94,7 +121,6 @@ namespace Cappuccino{
 	    FD_ZERO(&context.mask1fds);
 	    FD_SET(context.sockfd, &context.mask1fds);
 	}
-
 
 	using namespace std;
 	using string = string;
@@ -115,11 +141,17 @@ namespace Cappuccino{
     class Response{
       public:
       	operator string(){
-      		return "";
+      		return "200 / OK";
       	}
     };
 
 	Response create_response(char* req) noexcept{
+		auto lines = utils::split(string(req), "\n");
+		if(lines.empty())
+			return Response();
+ 
+		cout << lines[0] << endl;
+
 		return Response();
 	}
 
@@ -132,11 +164,7 @@ namespace Cappuccino{
 		if (recv(sessionfd, buf, sizeof(buf), 0) < 0) {
 			exit(EXIT_FAILURE);
 		}
-		bool isbody = false;
 		do{
-			if(!isbody && strstr(buf, "\r\n")) {
-				isbody = true;
-			}
 			if(strstr(buf, "\r\n")){
 				break;
 			}
@@ -244,7 +272,6 @@ namespace Cappuccino{
 	}
 
 	void Cappuccino(int argc, char *argv[]) {
-		context.port = 1204;
 		option(argc, argv);
 	}
 };
