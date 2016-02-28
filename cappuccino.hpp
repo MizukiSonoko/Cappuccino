@@ -139,20 +139,27 @@ namespace Cappuccino{
 	}
 
     class Response{
+		int status;
+		string message;
       public:
+		Response(int st,string msg){
+			status = st;
+			message = msg;
+		}
+	
       	operator string(){
-      		return "200 / OK";
+      		return to_string(status) + " / " + message;
       	}
     };
 
 	Response create_response(char* req) noexcept{
 		auto lines = utils::split(string(req), "\n");
 		if(lines.empty())
-			return Response();
+			return Response(400, "Bad Request");
  
 		cout << lines[0] << endl;
 
-		return Response();
+		return Response( 200, "OK");
 	}
 
 	string receive_process(int sessionfd){
