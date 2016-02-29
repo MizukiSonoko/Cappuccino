@@ -189,7 +189,7 @@ namespace Cappuccino{
 		if(filename!="")
 			directory += "/" + filename;
 		DIR* dir = opendir(directory.c_str());
-		if(dir!=NULL){
+		if(dir　!=　NULL){
 			struct dirent* dent;
 	        dent = readdir(dir);
 		    while(dent!=NULL){
@@ -199,19 +199,14 @@ namespace Cappuccino{
 		    }
 		    closedir(dir);
 		}else{
-			/*
-			auto static_file = Cappuccino::FileLoader(directory);
-			static_file.preload();
-			static_routes_.insert( make_pair(
+//			auto static_file = Cappuccino::FileLoader(directory);
+//			static_file.preload();
+			context.routes.insert( make_pair(
 				"/" + directory, 
-					[static_file](Request* request) -> Response{
-						return Cappuccino::ResponseBuilder(request)
-							.status(200,"OK")
-							.file(static_file)
-							.build();
-					}
-				));
-			*/
+				[](std::unique_ptr<Request> request) -> std::unique_ptr<Response>{
+					return std::make_unique<Response>();
+				}
+			));			
 		}
 	}
 
