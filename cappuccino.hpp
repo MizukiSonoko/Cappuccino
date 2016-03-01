@@ -32,6 +32,16 @@
 
 namespace Cappuccino{
 	
+	namespace Log{
+		static void debug(std::string msg){
+			std::cout << msg << std::endl;
+		}
+
+		static void info(std::string msg){
+			std::cout << msg << std::endl;
+		}
+	};
+
 	class Request;
 	class Response;
 
@@ -138,6 +148,10 @@ namespace Cappuccino{
 		}
 	}
 
+	class Request{
+
+	};
+
     class Response{
 		int status;
 		string message;
@@ -147,6 +161,11 @@ namespace Cappuccino{
 			message = msg;
 		}
 	
+
+		Response(string msg){
+			message = msg;
+		}
+
       	operator string(){
       		return to_string(status) + " / " + message;
       	}
@@ -182,6 +201,10 @@ namespace Cappuccino{
 		return create_response(buf);	
 	}
 	
+	string openFile(string filename){
+		
+	}
+
 	time_t client_info[FD_SETSIZE];
 
 	void load(string directory, string filename) noexcept{
@@ -189,7 +212,7 @@ namespace Cappuccino{
 		if(filename!="")
 			directory += "/" + filename;
 		DIR* dir = opendir(directory.c_str());
-		if(dir　!=　NULL){
+		if(dir != NULL){
 			struct dirent* dent;
 	        dent = readdir(dir);
 		    while(dent!=NULL){
@@ -202,9 +225,9 @@ namespace Cappuccino{
 //			auto static_file = Cappuccino::FileLoader(directory);
 //			static_file.preload();
 			context.routes.insert( make_pair(
-				"/" + directory, 
-				[](std::unique_ptr<Request> request) -> std::unique_ptr<Response>{
-					return std::make_unique<Response>();
+				directory +"/" + filename, 
+				[directory,filename](std::unique_ptr<Request> request) -> std::unique_ptr<Cappuccino::Response>{
+					return unique_ptr<Cappuccino::Response>(new Cappuccino::Response(openFile(directory +"/" + filename)));
 				}
 			));			
 		}
