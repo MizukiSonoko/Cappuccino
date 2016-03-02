@@ -133,7 +133,6 @@ namespace Cappuccino{
 	}
 
 	using namespace std;
-	using string = string;
 
 	void option(int argc, char *argv[]) noexcept{
 		char result;
@@ -149,6 +148,38 @@ namespace Cappuccino{
 	}
 
 	class Request{
+		map<string, string> headerset;
+		map<string, string> paramset;
+	  public:
+		Request(string method, string url,string protocol):
+		method(method),
+		url(url),
+		protocol(protocol)
+		{}
+
+		const string method;
+		const string url;
+		const string protocol;
+
+		void addHeader(string key,string value){
+			headerset[key] = value;
+		}
+
+		void addParams(string key,string value){
+			paramset[key] = value;
+		}
+
+		string header(string key){
+			if(headerset.find(key) == headerset.end())
+				return "INVALID";
+			return headerset[key];
+		}
+
+		string params(string key){
+			if(paramset.find(key) == paramset.end())
+				return "INVALID";
+			return paramset[key];
+		}
 
 	};
 
