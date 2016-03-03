@@ -55,9 +55,7 @@ namespace Cappuccino{
 		std::shared_ptr<std::string> static_root;
 
 		std::map<std::string,
-			std::function<
-				std::unique_ptr<Response>(std::unique_ptr<Request>)
-			>
+			std::function<Response(std::unique_ptr<Request>)>
 		> routes;
 	} context;
 
@@ -152,9 +150,9 @@ namespace Cappuccino{
 		map<string, string> paramset;
 	  public:
 		Request(string method, string url,string protocol):
-		method(method),
-		url(url),
-		protocol(protocol)
+		method(move(method)),
+		url(move(url)),
+		protocol(move(protocol))
 		{}
 
 		const string method;
@@ -162,11 +160,11 @@ namespace Cappuccino{
 		const string protocol;
 
 		void addHeader(string key,string value){
-			headerset[key] = value;
+			headerset[key] = move(value);
 		}
 
 		void addParams(string key,string value){
-			paramset[key] = value;
+			paramset[key] = move(value);
 		}
 
 		string header(string key){
@@ -180,7 +178,6 @@ namespace Cappuccino{
 				return "INVALID";
 			return paramset[key];
 		}
-
 	};
 
     class Response{
@@ -207,9 +204,16 @@ namespace Cappuccino{
 		if(lines.empty())
 			return Response(400, "Bad Request");
  
-		cout << lines[0] << endl;
+		auto tops = utils::split(lines[0], " ");
+		if(tops.size() < 3)
+			return Response(401, "Bad Request");
 
-		return Response( 200, "OK");
+		auto request = unique_ptr<Request>(new Request(tops[0],tops[1],tops[2]));
+ 		
+		if(context.routes.find(tops[1]) != context.routes.end()){
+			return context.routes[tops[1]](move(request));
+		}
+		return Response( 404, "Not found");
 	}
 
 	string receive_process(int sessionfd){
@@ -257,8 +261,8 @@ namespace Cappuccino{
 //			static_file.preload();
 			context.routes.insert( make_pair(
 				directory +"/" + filename, 
-				[directory,filename](std::unique_ptr<Request> request) -> std::unique_ptr<Cappuccino::Response>{
-					return unique_ptr<Cappuccino::Response>(new Cappuccino::Response(openFile(directory +"/" + filename)));
+				[directory,filename](std::unique_ptr<Request> request) -> Cappuccino::Response{
+					return Cappuccino::Response(openFile(directory +"/" + filename));
 				}
 			));			
 		}
