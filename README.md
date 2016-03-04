@@ -7,7 +7,7 @@ Tiny HTTP server library.
 
 # version
 ```
-1.2
+0.3
 ```
 
 # Micro sample
