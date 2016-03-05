@@ -33,12 +33,18 @@
 namespace Cappuccino{
 	
 	namespace Log{
+
+		static int LogLevel = 0;
 		static void debug(std::string msg){
-			std::cout << msg << std::endl;
+			if(LogLevel >= 1){
+				std::cout << msg << std::endl;
+			}
 		}
 
 		static void info(std::string msg){
-			std::cout << msg << std::endl;
+			if(LogLevel >= 2){
+				std::cout << msg << std::endl;
+			}
 		}
 	};
 
@@ -137,6 +143,7 @@ namespace Cappuccino{
 		while((result = getopt(argc,argv,"dp:")) != -1){
 			switch(result){
 			case 'd':
+				Log::LogLevel = 1;	
 				break;
 			case 'p':
 				context.port = atoi(optarg);
@@ -199,7 +206,7 @@ namespace Cappuccino{
       	}
     };
 
-	Response create_response(char* req) noexcept{
+	string create_response(char* req) noexcept{
 		auto lines = utils::split(string(req), "\n");
 		if(lines.empty())
 			return Response(400, "Bad Request");
