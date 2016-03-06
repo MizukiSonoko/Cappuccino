@@ -206,7 +206,9 @@ namespace Cappuccino{
       	}
     };
 
-	string create_response(char* req) noexcept{
+
+
+	string createResponse(char* req) noexcept{
 		auto lines = utils::split(string(req), "\n");
 		if(lines.empty())
 			return Response(400, "Bad Request");
@@ -223,7 +225,7 @@ namespace Cappuccino{
 		return Response( 404, "Not found");
 	}
 
-	string receive_process(int sessionfd){
+	string receiveProcess(int sessionfd){
 		char buf[BUF_SIZE] = {};
 		char method[BUF_SIZE] = {};
 		char url[BUF_SIZE] = {};
@@ -240,7 +242,7 @@ namespace Cappuccino{
 				memset(&buf, 0, sizeof(buf));
 			}
 		}while(read(sessionfd, buf+strlen(buf), sizeof(buf) - strlen(buf)) > 0);
-		return create_response(buf);	
+		return createResponse(buf);	
 	}
 	
 	string openFile(string filename){
@@ -328,8 +330,7 @@ namespace Cappuccino{
 	                        FD_CLR(fd, &context.mask1fds);
 	                        cd[fd] = 0;
 	                    } else {
-							string response = receive_process(fd);
-							write(fd, response.c_str(), response.size());
+							write(fd, response.c_str(), receiveProcess(fd).size());
 	                        cd[fd] = 1;
 	                    }
 	                }
