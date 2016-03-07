@@ -1,7 +1,5 @@
 CC=clang++
-CFLAG=-std=c++0x -Wall -Wno-unused-parameter -Wno-unused-variable -Wno-unused-function -O3 -lpthread
-LIBDIR=lib
-LIB=-l./$(LIBDIR)/cappuccino.so
+CFLAG=-std=c++0x $(LIB) -Wall -Wno-unused-parameter -Wno-unused-variable -Wno-unused-function -O3 -lpthread
 all: sample
 
 sample:
@@ -13,8 +11,8 @@ test:
 	rm sample
 
 remake:
-	rm sample	
+	rm -f sample	
 	$(CC) $(CFLAG) -DTEST sample.cpp -o sample
 
 clean:
-	rm sample
+	rm -f sample
