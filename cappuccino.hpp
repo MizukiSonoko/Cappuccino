@@ -245,8 +245,19 @@ namespace Cappuccino{
 		return createResponse(buf);	
 	}
 	
-	string openFile(string filename){
-		
+	string openFile(string aFilename){
+		auto filename = aFilename;
+		std::ifstream ifs( filename, std::ios::in | std::ios::binary);
+		if(ifs.fail()){		
+			throw std::runtime_error("No such file or directory \""+ filename +"\"\n");
+		}
+		ifs.seekg( 0, std::ios::end);
+		auto pos = ifs.tellg();
+		ifs.seekg( 0, std::ios::beg);
+
+		std::vector<char> buf(pos);
+		ifs.read(buf.data(), pos);
+		return string(buf.begin(), buf.end());;
 	}
 
 	time_t client_info[FD_SETSIZE];
@@ -330,6 +341,7 @@ namespace Cappuccino{
 	                        FD_CLR(fd, &context.mask1fds);
 	                        cd[fd] = 0;
 	                    } else {
+	                    	string response = receiveProcess(fd);
 							write(fd, response.c_str(), receiveProcess(fd).size());
 	                        cd[fd] = 1;
 	                    }
