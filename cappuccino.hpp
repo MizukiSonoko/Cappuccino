@@ -201,6 +201,10 @@ namespace Cappuccino{
 			message = msg;
 		}
 
+		Response* file(string file){
+
+		}
+
       	operator string(){
       		return to_string(status) + " / " + message;
       	}
@@ -277,12 +281,10 @@ namespace Cappuccino{
 		    }
 		    closedir(dir);
 		}else{
-//			auto static_file = Cappuccino::FileLoader(directory);
-//			static_file.preload();
 			context.routes.insert( make_pair(
 				directory +"/" + filename, 
 				[directory,filename](std::unique_ptr<Request> request) -> Cappuccino::Response{
-					return Cappuccino::Response(openFile(directory +"/" + filename));
+					return *Cappuccino::Response(200,"OK").file(openFile(directory +"/" + filename));
 				}
 			));			
 		}
@@ -291,6 +293,7 @@ namespace Cappuccino{
 	void load_static_files() noexcept{
 		load(*context.static_root,"");
 	}
+
 
 	void run(){
 
