@@ -138,6 +138,22 @@ namespace Cappuccino{
 
 	using namespace std;
 
+
+	string openFile(string aFilename){
+		auto filename = aFilename;
+		std::ifstream ifs( filename, std::ios::in | std::ios::binary);
+		if(ifs.fail()){		
+			throw std::runtime_error("No such file or directory \""+ filename +"\"\n");
+		}
+		ifs.seekg( 0, std::ios::end);
+		auto pos = ifs.tellg();
+		ifs.seekg( 0, std::ios::beg);
+
+		std::vector<char> buf(pos);
+		ifs.read(buf.data(), pos);
+		return string(buf.begin(), buf.end());;
+	}
+
 	void option(int argc, char *argv[]) noexcept{
 		char result;
 		while((result = getopt(argc,argv,"dp:")) != -1){
@@ -190,50 +206,58 @@ namespace Cappuccino{
     class Response{
 		int status;
 		string message;
+		string url;
+		string body;
       public:
-		Response(int st,string msg){
+		Response(int st,string ur,string msg){
 			status = st;
 			message = msg;
+			url = ur;
+		}
+
+		Response(Request& req){
+			url = req.url;
+		}
+
+		Response(int st,string ur,string msg,string body){
+			status = st;
+			message = msg;
+			url = ur;
+			body = body;
 		}
 	
 
-		Response(string msg){
-			message = msg;
-		}
-
-		Response* file(string file){
-
+		Response* file(string filename){
+			body = openFile(*context.view_root + "/" + filename);
+			return this;
 		}
 
       	operator string(){
-      		return to_string(status) + " / " + message;
+      		return to_string(status) + " "+ url +" " + message + "\n\n" + body;
       	}
     };
-
-
 
 	string createResponse(char* req) noexcept{
 		auto lines = utils::split(string(req), "\n");
 		if(lines.empty())
-			return Response(400, "Bad Request");
+			return Response(400,"/", "Bad Request");
  
 		auto tops = utils::split(lines[0], " ");
 		if(tops.size() < 3)
-			return Response(401, "Bad Request");
+			return Response(401,"/", "Bad Request");
+
+		cout<< tops[0] << " " << tops[1] << " " <<tops[2] << endl;
 
 		auto request = unique_ptr<Request>(new Request(tops[0],tops[1],tops[2]));
  		
 		if(context.routes.find(tops[1]) != context.routes.end()){
 			return context.routes[tops[1]](move(request));
 		}
-		return Response( 404, "Not found");
+		return Response( 404,tops[1], "Not found");
 	}
 
 	string receiveProcess(int sessionfd){
 		char buf[BUF_SIZE] = {};
-		char method[BUF_SIZE] = {};
-		char url[BUF_SIZE] = {};
-		char protocol[BUF_SIZE] = {};
 
 		if (recv(sessionfd, buf, sizeof(buf), 0) < 0) {
 			exit(EXIT_FAILURE);
@@ -249,22 +273,6 @@ namespace Cappuccino{
 		return createResponse(buf);	
 	}
 	
-	string openFile(string aFilename){
-		auto filename = aFilename;
-		std::ifstream ifs( filename, std::ios::in | std::ios::binary);
-		if(ifs.fail()){		
-			throw std::runtime_error("No such file or directory \""+ filename +"\"\n");
-		}
-		ifs.seekg( 0, std::ios::end);
-		auto pos = ifs.tellg();
-		ifs.seekg( 0, std::ios::beg);
-
-		std::vector<char> buf(pos);
-		ifs.read(buf.data(), pos);
-		return string(buf.begin(), buf.end());;
-	}
-
-	time_t client_info[FD_SETSIZE];
 
 	void load(string directory, string filename) noexcept{
 		if(filename == "." || filename == "..") return;
@@ -284,25 +292,29 @@ namespace Cappuccino{
 			context.routes.insert( make_pair(
 				directory +"/" + filename, 
 				[directory,filename](std::unique_ptr<Request> request) -> Cappuccino::Response{
-					return *Cappuccino::Response(200,"OK").file(openFile(directory +"/" + filename));
+					return Response(200,directory +"/" + filename,"OK",openFile(directory +"/" + filename));
 				}
 			));			
 		}
 	}
 
-	void load_static_files() noexcept{
+	void loadStaticFiles() noexcept{
 		load(*context.static_root,"");
 	}
 
+	void route(string url,std::function<Response(std::unique_ptr<Request>)> F){
+		context.routes.insert( make_pair( url, F ));
+	}
+
+	void root(string r){
+		context.view_root =  make_shared<string>(move(r));
+	}
 
 	void run(){
 
-		context.view_root = make_shared<string>("");		
-		context.static_root = make_shared<string>("public");
-
 		init_socket();
 		signal_utils::init_signal();
-		load_static_files();
+		loadStaticFiles();
 
 
 	    int cd[FD_SETSIZE];
@@ -356,6 +368,9 @@ namespace Cappuccino{
 
 	void Cappuccino(int argc, char *argv[]) {
 		option(argc, argv);
+
+		context.view_root = make_shared<string>("");
+		context.static_root = make_shared<string>("public");
 	}
 };
 
