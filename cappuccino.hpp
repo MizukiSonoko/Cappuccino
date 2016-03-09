@@ -61,7 +61,7 @@ namespace Cappuccino{
 		std::shared_ptr<std::string> static_root;
 
 		std::map<std::string,
-			std::function<Response(std::unique_ptr<Request>)>
+			std::function<Response(std::shared_ptr<Request>)>
 		> routes;
 	} context;
 
@@ -204,28 +204,39 @@ namespace Cappuccino{
 	};
 
     class Response{
-		int status;
-		string message;
+		int status_;
+		string message_;
 		string url;
 		string body;
+		string protocol;
       public:
-		Response(int st,string ur,string msg){
-			status = st;
-			message = msg;
-			url = ur;
+
+		Response(weak_ptr<Request> req){
+			auto r = req.lock();
+			if(r){
+				url = r->url;
+				protocol = r->protocol;
+			}else{
+				throw std::runtime_error("Request  expired!\n");
+			}
 		}
 
-		Response(Request& req){
-			url = req.url;
+		Response(int st,string msg,string pro, string bod){
+			status_ = st;
+			message_ = msg;
+			protocol = pro;
+			body = bod;
 		}
 
-		Response(int st,string ur,string msg,string body){
-			status = st;
-			message = msg;
-			url = ur;
-			body = body;
+		Response* message(string msg){
+			message_ = msg;
+			return this;
 		}
-	
+
+		Response* status(int st){
+			status_ = st;
+			return this;
+		}
 
 		Response* file(string filename){
 			body = openFile(*context.view_root + "/" + filename);
@@ -233,27 +244,28 @@ namespace Cappuccino{
 		}
 
       	operator string(){
-      		return to_string(status) + " "+ url +" " + message + "\n\n" + body;
+      		return protocol + " " + to_string(status_) +" "+ message_ + "\n\n" + body;
       	}
     };
 
 	string createResponse(char* req) noexcept{
 		auto lines = utils::split(string(req), "\n");
 		if(lines.empty())
-			return Response(400,"/", "Bad Request");
+			return Response(400, "Bad Request", "HTTP/1.1", "NN");
  
 		auto tops = utils::split(lines[0], " ");
 		if(tops.size() < 3)
-			return Response(401,"/", "Bad Request");
+			return Response(401, "Bad Request", "HTTP/1.1",  "NN");
 
 		cout<< tops[0] << " " << tops[1] << " " <<tops[2] << endl;
 
-		auto request = unique_ptr<Request>(new Request(tops[0],tops[1],tops[2]));
- 		
+		auto request = shared_ptr<Request>(new Request(tops[0],tops[1],tops[2]));
+
 		if(context.routes.find(tops[1]) != context.routes.end()){
 			return context.routes[tops[1]](move(request));
 		}
-		return Response( 404,tops[1], "Not found");
+
+		return Response( 404,"Not found", tops[2], "AA");
 	}
 
 	string receiveProcess(int sessionfd){
@@ -289,10 +301,11 @@ namespace Cappuccino{
 		    }
 		    closedir(dir);
 		}else{
+			cout<<"add "<<directory<< endl;
 			context.routes.insert( make_pair(
-				directory +"/" + filename, 
-				[directory,filename](std::unique_ptr<Request> request) -> Cappuccino::Response{
-					return Response(200,directory +"/" + filename,"OK",openFile(directory +"/" + filename));
+				"/" + directory, 
+				[directory,filename](std::shared_ptr<Request> request) -> Cappuccino::Response{
+					return Response(200,"OK","HTTP/1.1",openFile(directory));
 				}
 			));			
 		}
@@ -302,7 +315,7 @@ namespace Cappuccino{
 		load(*context.static_root,"");
 	}
 
-	void route(string url,std::function<Response(std::unique_ptr<Request>)> F){
+	void route(string url,std::function<Response(std::shared_ptr<Request>)> F){
 		context.routes.insert( make_pair( url, F ));
 	}
 
@@ -342,21 +355,22 @@ namespace Cappuccino{
 	            }
 	            continue;
 	        }
-	        for(fd = 0; fd < FD_SETSIZE; fd++){
+			for(fd = 0; fd < FD_SETSIZE; fd++){
 	            if(FD_ISSET(fd,&context.mask2fds)) {
 	                if(fd == context.sockfd) {
 	                	memset( &client, 0, sizeof(client));
 						int len = sizeof(client);
-	                    int clientfd = accept(context.sockfd, (struct sockaddr *)&client,(socklen_t *) &len);
-                        FD_SET(clientfd, &context.mask1fds);
+	                    int clientfd = accept(context.sockfd, 
+	                        (struct sockaddr *)&client,(socklen_t *) &len);
+	                        FD_SET(clientfd, &context.mask1fds);
 	                }else {
 	                    if(cd[fd] == 1) {
 	                        close(fd);
 	                        FD_CLR(fd, &context.mask1fds);
 	                        cd[fd] = 0;
 	                    } else {
-	                    	string response = receiveProcess(fd);
-							write(fd, response.c_str(), receiveProcess(fd).size());
+							string response = receiveProcess(fd);
+							write(fd, response.c_str(), response.size());
 	                        cd[fd] = 1;
 	                    }
 	                }
@@ -376,10 +390,19 @@ namespace Cappuccino{
 namespace Cocoa{
 	using namespace Cappuccino;
 	using namespace std;
-	// Unit Test
+
+	// Unit Test	
 	void testOpenFile(){
 		string res = openFile("html/index.html");
-		cout << res << endl;
+		cout << res << endl;		
+	}
+
+	void testOpenInvalidFile(){
+		try{
+			string res = openFile("html/index");
+		}catch(std::runtime_error e){
+			cout<< e.what() << endl;
+		}
 	}
 };
 
