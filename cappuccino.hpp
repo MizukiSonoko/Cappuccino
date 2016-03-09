@@ -316,7 +316,6 @@ namespace Cappuccino{
 		signal_utils::init_signal();
 		loadStaticFiles();
 
-
 	    int cd[FD_SETSIZE];
 		struct sockaddr_in client;
         int    fd;
@@ -375,6 +374,12 @@ namespace Cappuccino{
 };
 
 namespace Cocoa{
-	class App{};
+	using namespace Cappuccino;
+	using namespace std;
+	// Unit Test
+	void testOpenFile(){
+		string res = openFile("html/index.html");
+		cout << res << endl;
+	}
 };
 
