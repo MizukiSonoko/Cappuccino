@@ -23,6 +23,7 @@
 #include <regex>
 #endif
 
+#include <assert.h>
 #include <vector>
 #include <fstream>
 #include <future>
@@ -394,7 +395,8 @@ namespace Cocoa{
 	// Unit Test	
 	void testOpenFile(){
 		string res = openFile("html/index.html");
-		cout << res << endl;		
+		auto lines = utils::split(res, "\n");
+		assert(!lines.empty());
 	}
 
 	void testOpenInvalidFile(){

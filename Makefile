@@ -1,18 +1,18 @@
 CC=clang++
 CFLAG=-std=c++0x $(LIB) -Wall -Wno-unused-parameter -Wno-unused-variable -Wno-unused-function -O3 -lpthread
-all: sample
+all: chino
 
-sample:
-	$(CC) $(CFLAG) sample.cpp -o sample
+chino:
+	$(CC) $(CFLAG) chino.cpp -o chino
 
 test:
-	$(CC) $(CFLAG) -DTEST sample.cpp -o sample
-	./sample
-	rm sample
+	$(CC) $(CFLAG) -DTEST chino.cpp -o chino
+	./chino
+	rm chino
 
 remake:
-	rm -f sample	
-	$(CC) $(CFLAG) -DTEST sample.cpp -o sample
+	rm -f chino
+	$(CC) $(CFLAG) -DTEST chino.cpp -o chino
 
 clean:
-	rm -f sample
+	rm -f chino
