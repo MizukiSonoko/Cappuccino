@@ -37,14 +37,11 @@ int main(int argc, char *argv[]) {
 	Cappuccino::add_static_root("public");
 
 	// set document_root
-	Cappuccino::add_view_root("html");
-
+	Cappuccino::root("html");
+	
 	// add function
-	Cappuccino::add_route("/", [](Cappuccino::Request* req) -> Cappuccino::Response{
-		return Cappuccino::ResponseBuilder(req)
-					.status(200,"OK")
-					.file("index.html")
-					.build();
+	Cappuccino::route("/",[](std::shared_ptr<Cappuccino::Request> request) -> Cappuccino::Response{
+		return *Cappuccino::Response(request).status(200)->message("OK")->file("index.html");
 	});
 
 	// runnning
