@@ -7,7 +7,7 @@ Tiny HTTP server library.
 
 # version
 ```
-0.3
+0.0.1
 ```
 
 # Micro sample
@@ -24,17 +24,14 @@ $ ./sample
 
 # Usage
 
-#### 1. include "cappuccino.h"
+#### 1. include "cappuccino.hpp"
 #### 2. write code
 ```cpp
-#include "cappuccino.h"
+#include "cappuccino.hpp"
 
 int main(int argc, char *argv[]) {
 	// initialize
 	Cappuccino::Cappuccino(argc, argv);
-
-	// set static files root
-	Cappuccino::add_static_root("public");
 
 	// set document_root
 	Cappuccino::root("html");
