@@ -53,7 +53,8 @@ namespace Cappuccino{
 
 		std::map<std::string,
 			std::function<Response(std::shared_ptr<Request>)>
-		> routes;	
+		> routes;
+
 	} context;
 
 	namespace Log{
@@ -61,7 +62,7 @@ namespace Cappuccino{
 		std::string current(){
 			char timestr[256];
    			time(&context.time);
-			strftime(timestr, 255, "%Y-%m-%d %H:%M:%S %X", localtime(&context.time));	
+			strftime(timestr, 255, "%Y-%m-%d %H:%M:%S %Z", localtime(&context.time));	
 			return timestr;
 		}
 
@@ -272,7 +273,7 @@ namespace Cappuccino{
 		if(tops.size() < 3)
 			return Response(401, "Bad Request", "HTTP/1.1",  "NN");
 
-		cout<< tops[0] << " " << tops[1] << " " <<tops[2] << endl;
+		Log::debug(tops[0] +" "+ tops[1] +" "+ tops[2]);
 
 		auto request = shared_ptr<Request>(new Request(tops[0],tops[1],tops[2]));
 
@@ -316,7 +317,7 @@ namespace Cappuccino{
 		    }
 		    closedir(dir);
 		}else{
-			cout<<"add "<<directory<< endl;
+			Log::debug("add "+directory);
 			context.routes.insert( make_pair(
 				"/" + directory, 
 				[directory,filename](std::shared_ptr<Request> request) -> Cappuccino::Response{
