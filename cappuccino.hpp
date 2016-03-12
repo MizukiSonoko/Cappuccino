@@ -1,8 +1,8 @@
-#include <stdio.h>
-#include <stdlib.h>
+#include <cstdio>
+#include <cstdlib>
 #include <unistd.h>
-#include <string.h>
-#include <signal.h>
+#include <string>
+#include <csignal>
 #include <netinet/in.h>
 #include <sys/socket.h>
 #include <sys/types.h> 
@@ -10,20 +10,17 @@
 #include <dirent.h>
 #include <fcntl.h>
 #include <errno.h>
-#include <string>
 #include <functional>
 #include <unordered_map>
-#include <list>
 #include <algorithm>
 #include <iostream>
 #include <sstream>
-#include <map>
 
 #if defined(__APPLE__) || defined(__GNUC__) && __GNUC__ * 10  + __GNUC_MINOR__ >= 49
 #include <regex>
 #endif
 
-#include <assert.h>
+#include <cassert>
 #include <vector>
 #include <fstream>
 #include <future>
@@ -171,8 +168,8 @@ namespace Cappuccino{
 	}
 
 	class Request{
-		map<string, string> headerset;
-		map<string, string> paramset;
+		unordered_map<string, string> headerset;
+		unordered_map<string, string> paramset;
 	  public:
 		Request(string method, string url,string protocol):
 		method(move(method)),
