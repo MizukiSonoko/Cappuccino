@@ -26,31 +26,21 @@
 #include <fstream>
 #include <future>
 
+#include <ctime>
+
 #define BUF_SIZE 4096
 #define MAX_LISTEN 128
 
 namespace Cappuccino{
-	
-	namespace Log{
-
-		static int LogLevel = 0;
-		static void debug(std::string msg){
-			if(LogLevel >= 1){
-				std::cout << msg << std::endl;
-			}
-		}
-
-		static void info(std::string msg){
-			if(LogLevel >= 2){
-				std::cout << msg << std::endl;
-			}
-		}
-	};
 
 	class Request;
 	class Response;
 
 	struct {
+
+		time_t time;
+   		struct tm *t_st;
+
 		int port = 1204;
 		int sockfd = 0;
 		int sessionfd = 0;
@@ -64,6 +54,30 @@ namespace Cappuccino{
 		> routes;
 
 	} context;
+
+	namespace Log{
+
+		std::string current(){
+			char timestr[256];
+   			time(&context.time);
+			strftime(timestr, 255, "%Y-%m-%d %H:%M:%S %Z", localtime(&context.time));	
+			return timestr;
+		}
+
+
+		static int LogLevel = 0;
+		static void debug(std::string msg){
+			if(LogLevel >= 1){
+				std::cout <<current()<<" "<< msg << std::endl;
+			}
+		}
+
+		static void info(std::string msg){
+			if(LogLevel >= 2){
+				std::cout <<current()<<" "<< msg << std::endl;
+			}
+		}
+	};
 
 	namespace signal_utils{
 
@@ -257,7 +271,7 @@ namespace Cappuccino{
 		if(tops.size() < 3)
 			return Response(401, "Bad Request", "HTTP/1.1",  "NN");
 
-		cout<< tops[0] << " " << tops[1] << " " <<tops[2] << endl;
+		Log::debug(tops[0] +" "+ tops[1] +" "+ tops[2]);
 
 		auto request = shared_ptr<Request>(new Request(tops[0],tops[1],tops[2]));
 
@@ -303,7 +317,7 @@ namespace Cappuccino{
 			delete dent;
 			delete dir;
 		}else{
-			cout<<"add "<<directory<< endl;
+			Log::debug("add "+directory);
 			context.routes.insert( make_pair(
 				"/" + directory, 
 				[directory,filename](std::shared_ptr<Request> request) -> Cappuccino::Response{
