@@ -1,8 +1,9 @@
-#include <stdio.h>
-#include <stdlib.h>
+#include <cstdio>
+#include <cstdlib>
 #include <unistd.h>
+#include <string>
 #include <string.h>
-#include <signal.h>
+#include <csignal>
 #include <netinet/in.h>
 #include <sys/socket.h>
 #include <sys/types.h> 
@@ -10,20 +11,17 @@
 #include <dirent.h>
 #include <fcntl.h>
 #include <errno.h>
-#include <string>
 #include <functional>
 #include <unordered_map>
-#include <list>
 #include <algorithm>
 #include <iostream>
 #include <sstream>
-#include <map>
 
 #if defined(__APPLE__) || defined(__GNUC__) && __GNUC__ * 10  + __GNUC_MINOR__ >= 49
 #include <regex>
 #endif
 
-#include <assert.h>
+#include <cassert>
 #include <vector>
 #include <fstream>
 #include <future>
@@ -61,9 +59,10 @@ namespace Cappuccino{
 		std::shared_ptr<std::string> view_root;
 		std::shared_ptr<std::string> static_root;
 
-		std::map<std::string,
+		std::unordered_map<std::string,
 			std::function<Response(std::shared_ptr<Request>)>
 		> routes;
+
 	} context;
 
 	namespace signal_utils{
@@ -170,8 +169,8 @@ namespace Cappuccino{
 	}
 
 	class Request{
-		map<string, string> headerset;
-		map<string, string> paramset;
+		unordered_map<string, string> headerset;
+		unordered_map<string, string> paramset;
 	  public:
 		Request(string method, string url,string protocol):
 		method(move(method)),
@@ -207,16 +206,16 @@ namespace Cappuccino{
     class Response{
 		int status_;
 		string message_;
-		string url;
-		string body;
-		string protocol;
+		string url_;
+		string body_;
+		string protocol_;
       public:
 
 		Response(weak_ptr<Request> req){
 			auto r = req.lock();
 			if(r){
-				url = r->url;
-				protocol = r->protocol;
+				url_ = r->url;
+				protocol_ = r->protocol;
 			}else{
 				throw std::runtime_error("Request  expired!\n");
 			}
@@ -225,8 +224,8 @@ namespace Cappuccino{
 		Response(int st,string msg,string pro, string bod):
 			status_(st),
 			message_(msg),
-			protocol(pro),
-			body(bod)
+			body_(bod),
+			protocol_(pro)
 		{}
 
 		Response* message(string msg){
@@ -240,12 +239,12 @@ namespace Cappuccino{
 		}
 
 		Response* file(string filename){
-			body = openFile(*context.view_root + "/" + filename);
+			body_ = openFile(*context.view_root + "/" + filename);
 			return this;
 		}
 
       	operator string(){
-      		return protocol + " " + to_string(status_) +" "+ message_ + "\n\n" + body;
+      		return protocol_ + " " + to_string(status_) +" "+ message_ + "\n\n" + body_;
       	}
     };
 
@@ -319,13 +318,17 @@ namespace Cappuccino{
 	}
 
 	void route(string url,std::function<Response(std::shared_ptr<Request>)> F){
-		context.routes.insert( make_pair( url, F ));
+		context.routes.insert( make_pair( move(url), move(F) ));
 	}
 
 	void root(string r){
 		context.view_root =  make_shared<string>(move(r));
 	}
 	
+	void resource(string s){
+		context.static_root = make_shared<string>(move(s));
+	}
+
 	void run(){
 
 		init_socket();
@@ -394,7 +397,6 @@ namespace Cappuccino{
 
 	void Cappuccino(int argc, char *argv[]) {
 		option(argc, argv);
-
 		context.view_root = make_shared<string>("");
 		context.static_root = make_shared<string>("public");
 	}
