@@ -222,12 +222,12 @@ namespace Cappuccino{
 			}
 		}
 
-		Response(int st,string msg,string pro, string bod){
-			status_ = st;
-			message_ = msg;
-			protocol = pro;
-			body = bod;
-		}
+		Response(int st,string msg,string pro, string bod):
+			status_(st),
+			message_(msg),
+			protocol(pro),
+			body(bod)
+		{}
 
 		Response* message(string msg){
 			message_ = msg;
@@ -301,6 +301,8 @@ namespace Cappuccino{
 			        load(directory, string(dent->d_name));
 		    }
 		    closedir(dir);
+			delete dent;
+			delete dir;
 		}else{
 			cout<<"add "<<directory<< endl;
 			context.routes.insert( make_pair(
@@ -323,7 +325,7 @@ namespace Cappuccino{
 	void root(string r){
 		context.view_root =  make_shared<string>(move(r));
 	}
-
+	
 	void run(){
 
 		init_socket();
@@ -339,7 +341,14 @@ namespace Cappuccino{
 	        cd[i] = 0;
 	    }
 
+		int I = 0;
 	    while(1) {
+	
+			if(I>5){
+				return;
+			}	
+			
+
 	        tv.tv_sec = 0;
 	        tv.tv_usec = 0;
 
@@ -373,6 +382,9 @@ namespace Cappuccino{
 							string response = receiveProcess(fd);
 							write(fd, response.c_str(), response.size());
 	                        cd[fd] = 1;
+
+							I++;
+	
 	                    }
 	                }
 	            }
