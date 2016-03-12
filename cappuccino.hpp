@@ -2,6 +2,7 @@
 #include <cstdlib>
 #include <unistd.h>
 #include <string>
+#include <string.h>
 #include <csignal>
 #include <netinet/in.h>
 #include <sys/socket.h>
