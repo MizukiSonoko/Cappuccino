@@ -180,7 +180,7 @@ namespace Cappuccino{
 
 	void option(int argc, char *argv[]) noexcept{
 		char result;
-		while((result = getopt(argc,argv,"dp:")) != -1){
+		while((result = getopt(argc,argv,"dvp:")) != -1){
 			switch(result){
 			case 'd':
 				Log::LogLevel = 1;	
@@ -188,6 +188,9 @@ namespace Cappuccino{
 			case 'p':
 				context.port = atoi(optarg);
 				break;
+			case 'v':
+				Log::info("version 0.0.3");
+				exit(0);
 			}
 		}
 	}
