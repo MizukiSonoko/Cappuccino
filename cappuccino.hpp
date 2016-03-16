@@ -31,7 +31,7 @@
 #define BUF_SIZE 4096
 #define MAX_LISTEN 128
 
-namespace Cappuccino{
+namespace Cappuccino {
 
 	class Request;
 	class Response;
@@ -68,13 +68,13 @@ namespace Cappuccino{
 		static int LogLevel = 0;
 		static void debug(std::string msg){
 			if(LogLevel >= 1){
-				std::cout <<current()<<" "<< msg << std::endl;
+				std::cout <<current()<<"[debug] "<< msg << std::endl;
 			}
 		}
 
 		static void info(std::string msg){
 			if(LogLevel >= 2){
-				std::cout <<current()<<" "<< msg << std::endl;
+				std::cout <<current()<<"[info] "<< msg << std::endl;
 			}
 		}
 	};
@@ -153,7 +153,7 @@ namespace Cappuccino{
 	using namespace std;
 
 
-	string openFile(string aFilename){
+	pair<string,string> openFile(string aFilename){
 		auto filename = aFilename;
 		std::ifstream ifs( filename, std::ios::in | std::ios::binary);
 		if(ifs.fail()){		
@@ -165,12 +165,22 @@ namespace Cappuccino{
 
 		std::vector<char> buf(pos);
 		ifs.read(buf.data(), pos);
-		return string(buf.begin(), buf.end());;
+		string response(buf.cbegin(), buf.cend());
+
+		if( response[0] == '\xFF' && response[1] == '\xD8'){
+			return make_pair(response, "image/jpg");
+		}else if( response[0] == '\x89' && response[1] == 'P' && response[2] == 'N' && response[3] == 'G'){
+			return make_pair(response, "image/png");
+		}else if( response[0] == 'G' && response[1] == 'I' && response[2] == 'F' && response[3] == '8' && (response[4] == '7' || response[4] == '9') && response[2] == 'a'){
+			return make_pair(response, "image/gif");
+		}else{
+			return make_pair(response, "text/html");
+		}
 	}
 
 	void option(int argc, char *argv[]) noexcept{
 		char result;
-		while((result = getopt(argc,argv,"dp:")) != -1){
+		while((result = getopt(argc,argv,"dvp:")) != -1){
 			switch(result){
 			case 'd':
 				Log::LogLevel = 1;	
@@ -178,6 +188,9 @@ namespace Cappuccino{
 			case 'p':
 				context.port = atoi(optarg);
 				break;
+			case 'v':
+				Log::info("version 0.0.3");
+				exit(0);
 			}
 		}
 	}
@@ -218,6 +231,9 @@ namespace Cappuccino{
 	};
 
     class Response{
+
+		unordered_map<string, string> headerset;
+
 		int status_;
 		string message_;
 		string url_;
@@ -253,7 +269,9 @@ namespace Cappuccino{
 		}
 
 		Response* file(string filename){
-			body_ = openFile(*context.view_root + "/" + filename);
+			auto file = openFile(*context.view_root + "/" + filename);
+			body_ = file.first;
+			headerset["Content-type"] = move(file.second);
 			return this;
 		}
 
@@ -303,7 +321,7 @@ namespace Cappuccino{
 	void load(string directory, string filename) noexcept{
 		if(filename == "." || filename == "..") return;
 		if(filename!="")
-			directory += "/" + filename;
+			directory += "/" + move(filename);
 		DIR* dir = opendir(directory.c_str());
 		if(dir != NULL){
 			struct dirent* dent;
@@ -313,15 +331,17 @@ namespace Cappuccino{
 		        if(dent!=NULL)
 			        load(directory, string(dent->d_name));
 		    }
-		    closedir(dir);
-			delete dent;
-			delete dir;
+			if(dir!=NULL){
+		    	closedir(dir);
+				//delete dent;
+				//delete dir;
+			}
 		}else{
 			Log::debug("add "+directory);
 			context.routes.insert( make_pair(
 				"/" + directory, 
 				[directory,filename](std::shared_ptr<Request> request) -> Cappuccino::Response{
-					return Response(200,"OK","HTTP/1.1",openFile(directory));
+					return Response(200,"OK","HTTP/1.1",openFile(directory).first);
 				}
 			));			
 		}
@@ -422,14 +442,14 @@ namespace Cocoa{
 
 	// Unit Test	
 	void testOpenFile(){
-		string res = openFile("html/index.html");
-		auto lines = utils::split(res, "\n");
+		auto res = openFile("html/index.html");
+		auto lines = utils::split(res.first, "\n");
 		assert(!lines.empty());
 	}
 
 	void testOpenInvalidFile(){
 		try{
-			string res = openFile("html/index");
+			auto res = openFile("html/index");
 		}catch(std::runtime_error e){
 			cout<< e.what() << endl;
 		}
