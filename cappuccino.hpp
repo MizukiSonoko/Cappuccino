@@ -31,7 +31,7 @@
 #define BUF_SIZE 4096
 #define MAX_LISTEN 128
 
-namespace Cappuccino{
+namespace Cappuccino {
 
 	class Request;
 	class Response;
@@ -68,13 +68,13 @@ namespace Cappuccino{
 		static int LogLevel = 0;
 		static void debug(std::string msg){
 			if(LogLevel >= 1){
-				std::cout <<current()<<" "<< msg << std::endl;
+				std::cout <<current()<<"[debug] "<< msg << std::endl;
 			}
 		}
 
 		static void info(std::string msg){
 			if(LogLevel >= 2){
-				std::cout <<current()<<" "<< msg << std::endl;
+				std::cout <<current()<<"[info] "<< msg << std::endl;
 			}
 		}
 	};
@@ -321,7 +321,7 @@ namespace Cappuccino{
 	void load(string directory, string filename) noexcept{
 		if(filename == "." || filename == "..") return;
 		if(filename!="")
-			directory += "/" + filename;
+			directory += "/" + move(filename);
 		DIR* dir = opendir(directory.c_str());
 		if(dir != NULL){
 			struct dirent* dent;
@@ -331,9 +331,11 @@ namespace Cappuccino{
 		        if(dent!=NULL)
 			        load(directory, string(dent->d_name));
 		    }
-		    closedir(dir);
-			delete dent;
-			delete dir;
+			if(dir!=NULL){
+		    	closedir(dir);
+				//delete dent;
+				//delete dir;
+			}
 		}else{
 			Log::debug("add "+directory);
 			context.routes.insert( make_pair(
