@@ -267,6 +267,13 @@ namespace Cappuccino {
 			status_ = st;
 			return this;
 		}
+		
+		Response* headeer(string key,string val){
+			if(headerset.find(key)!= headerset.end())
+				Log::debug(key+" is already setted.");
+			headerset[key] = val;
+			return this;
+		}
 
 		Response* file(string filename){
 			auto file = openFile(*context.view_root + "/" + filename);
