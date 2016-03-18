@@ -385,13 +385,7 @@ namespace Cappuccino {
 	        cd[i] = 0;
 	    }
 
-		int I = 0;
 	    while(1) {
-	
-			if(I>5){
-				return;
-			}	
-			
 
 	        tv.tv_sec = 0;
 	        tv.tv_usec = 0;
