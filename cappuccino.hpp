@@ -407,21 +407,20 @@ namespace Cappuccino {
 	            if(FD_ISSET(fd,&context.mask2fds)) {
 	                if(fd == context.sockfd) {
 	                	memset( &client, 0, sizeof(client));
-						int len = sizeof(client);
-	                    int clientfd = accept(context.sockfd, 
-	                        (struct sockaddr *)&client,(socklen_t *) &len);
-	                        FD_SET(clientfd, &context.mask1fds);
+										int len = sizeof(client);
+										int clientfd = accept(context.sockfd, 
+													(struct sockaddr *)&client,(socklen_t *) &len);
+													FD_SET(clientfd, &context.mask1fds);
 	                }else {
 	                    if(cd[fd] == 1) {
 	                        close(fd);
 	                        FD_CLR(fd, &context.mask1fds);
 	                        cd[fd] = 0;
 	                    } else {
-							string response = receiveProcess(fd);
-							write(fd, response.c_str(), response.size());
+													string response = receiveProcess(fd);
+													write(fd, response.c_str(), response.size());
 	                        cd[fd] = 1;
 
-							I++;
 	
 	                    }
 	                }
