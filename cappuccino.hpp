@@ -196,19 +196,34 @@ namespace Cappuccino {
 	}
 
 	class Request{
-		unordered_map<string, string> headerset;
-		unordered_map<string, string> paramset;
+		map<string, string> headerset;
+		map<string, string> paramset;
+		bool correctRequest;
 	  public:
 		Request(string method, string url,string protocol):
 		method(move(method)),
 		url(move(url)),
 		protocol(move(protocol))
-		{}
+		{
+			correctRequest = validateHttpVersion(protocol);
+		}
 
 		const string method;
 		const string url;
 		const string protocol;
 
+		//  HTTP-Version   = "HTTP" "/" 1*DIGIT "." 1*DIGIT
+		bool validateHttpVersion(string v){
+			if(v.size() < 5) return false;
+			if(v[0] != 'H' || v[1] != 'T' ||
+				v[2] != 'T' || v[3] != 'P') return false;
+
+			if(v[4] != '/') return false;
+			for(int i=5;i < v.size();i++){
+				if(!isdigit(v[i]) && v[i] != '.') return false;
+			}
+			return true;
+		}
 		void addHeader(string key,string value){
 			headerset[key] = move(value);
 		}
@@ -254,8 +269,8 @@ namespace Cappuccino {
 		Response(int st,string msg,string pro, string bod):
 			status_(st),
 			message_(msg),
-			body_(bod),
-			protocol_(pro)
+			body(bod),
+			protocol(pro)
 		{}
 
 		Response* message(string msg){
