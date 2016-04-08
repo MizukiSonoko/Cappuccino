@@ -35,7 +35,7 @@ namespace Cappuccino {
 	struct {
 
 		time_t time;
-   		struct tm *t_st;
+   	struct tm *t_st;
 
 		int port = 1204;
 		int sockfd = 0;
@@ -239,6 +239,10 @@ namespace Cappuccino {
 				return "INVALID";
 			return paramset[key];
 		}
+
+		bool isCorrect(){
+			return correctRequest;
+		}
 	};
 
     class Response{
@@ -310,6 +314,10 @@ namespace Cappuccino {
 		Log::debug(tops[0] +" "+ tops[1] +" "+ tops[2]);
 
 		auto request = shared_ptr<Request>(new Request(tops[0],tops[1],tops[2]));
+
+		if(!request.isCorrect()){
+			return Response( 401,"Bad Request", tops[2], "AA");
+		}
 
 		if(context.routes.find(tops[1]) != context.routes.end()){
 			return context.routes[tops[1]](move(request));
