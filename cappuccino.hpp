@@ -35,7 +35,7 @@ namespace Cappuccino {
 	struct {
 
 		time_t time;
-   		struct tm *t_st;
+   	struct tm *t_st;
 
 		int port = 1204;
 		int sockfd = 0;
@@ -194,17 +194,32 @@ namespace Cappuccino {
 	class Request{
 		unordered_map<string, string> headerset;
 		unordered_map<string, string> paramset;
+		bool correctRequest;
 	  public:
 		Request(string method, string url,string protocol):
 		method(move(method)),
 		url(move(url)),
 		protocol(move(protocol))
-		{}
+		{
+			correctRequest = validateHttpVersion(protocol);
+		}
 
 		const string method;
 		const string url;
 		const string protocol;
 
+		//  HTTP-Version   = "HTTP" "/" 1*DIGIT "." 1*DIGIT
+		bool validateHttpVersion(string v){
+			if(v.size() < 5) return false;
+			if(v[0] != 'H' || v[1] != 'T' ||
+				v[2] != 'T' || v[3] != 'P') return false;
+
+			if(v[4] != '/') return false;
+			for(int i=5;i < v.size();i++){
+				if(!isdigit(v[i]) && v[i] != '.') return false;
+			}
+			return true;
+		}
 		void addHeader(string key,string value){
 			headerset[key] = move(value);
 		}
@@ -223,6 +238,10 @@ namespace Cappuccino {
 			if(paramset.find(key) == paramset.end())
 				return "INVALID";
 			return paramset[key];
+		}
+
+		bool isCorrect(){
+			return correctRequest;
 		}
 	};
 
@@ -295,6 +314,10 @@ namespace Cappuccino {
 		Log::debug(tops[0] +" "+ tops[1] +" "+ tops[2]);
 
 		auto request = shared_ptr<Request>(new Request(tops[0],tops[1],tops[2]));
+
+		if(!request->isCorrect()){
+			return Response( 401,"Bad Request", tops[2], "AA");
+		}
 
 		if(context.routes.find(tops[1]) != context.routes.end()){
 			return context.routes[tops[1]](move(request));
