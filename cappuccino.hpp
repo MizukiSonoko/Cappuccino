@@ -192,8 +192,8 @@ namespace Cappuccino {
 	}
 
 	class Request{
-		map<string, string> headerset;
-		map<string, string> paramset;
+		unordered_map<string, string> headerset;
+		unordered_map<string, string> paramset;
 		bool correctRequest;
 	  public:
 		Request(string method, string url,string protocol):
@@ -269,8 +269,8 @@ namespace Cappuccino {
 		Response(int st,string msg,string pro, string bod):
 			status_(st),
 			message_(msg),
-			body(bod),
-			protocol(pro)
+			body_(bod),
+			protocol_(pro)
 		{}
 
 		Response* message(string msg){
@@ -315,7 +315,7 @@ namespace Cappuccino {
 
 		auto request = shared_ptr<Request>(new Request(tops[0],tops[1],tops[2]));
 
-		if(!request.isCorrect()){
+		if(!request->isCorrect()){
 			return Response( 401,"Bad Request", tops[2], "AA");
 		}
 
