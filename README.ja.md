@@ -1,6 +1,10 @@
 # ご注文はCappuccinoですか？
 [![Build Status](https://travis-ci.org/MizukiSonoko/Cappuccino.svg?branch=master)](https://travis-ci.org/MizukiSonoko/Cappuccino)
 
+# version
+```
+0.0.1
+```
 
 C++で書かれたWebFrameworkシングルヘッダライブラリです。
 
