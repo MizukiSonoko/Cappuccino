@@ -1,5 +1,9 @@
 #include "cappuccino.hpp"
 
+#include <json.hpp>
+
+using json = nlohmann::json;
+
 int main(int argc, char *argv[]){
 
 #ifdef TEST
@@ -12,8 +16,15 @@ int main(int argc, char *argv[]){
 		return *Cappuccino::Response(request).status(200)->message("OK")->file("index.html");
 	});
 
-	Cappuccino::route("/cocoa",[](std::shared_ptr<Cappuccino::Request> request) -> Cappuccino::Response{
-		return *Cappuccino::Response(request).status(200)->message("OK")->file("cocoa.html");
+	Cappuccino::route("/json",[](std::shared_ptr<Cappuccino::Request> request) -> Cappuccino::Response{
+		json res = {
+			{"status","ok"}
+		};
+		Cappuccino::Log::debug("+++ ["+*request->body+"]");
+		if(*request->body != ""){
+			Cappuccino::Log::debug(json::parse((*request->body))["A"]);
+		}
+		return *Cappuccino::Response(request).status(200)->message("OK")->json(res);
 	});
 
 	Cappuccino::run();
