@@ -1,18 +1,17 @@
-CC=clang++
-CFLAG=-std=c++0x $(LIB) -Wall -Wno-unused-parameter -Wno-unused-variable -Wno-unused-function -O3 -lpthread
 all: chino
 
+CC=g++
+CFLAG := -g -std=c++1y $(LIB) -Wall -Wno-unused-parameter -Wno-unused-variable -Wno-unused-function -O3 -lpthread
+INCLUDES := -Ilib/json/src
+
+
 chino:
-	$(CC) $(CFLAG) chino.cpp -o chino
+	$(CC) $(CFLAG) $(INCLUDES) chino.cpp -o chino
 
 test:
-	$(CC) $(CFLAG) -DTEST chino.cpp -o chino
+	$(CC) $(CFLAG) $(INCLUDES) -DTEST chino.cpp -o chino
 	./chino
 	rm chino
-
-remake:
-	rm -f chino
-	$(CC) $(CFLAG) -DTEST chino.cpp -o chino
 
 clean:
 	rm -f chino
