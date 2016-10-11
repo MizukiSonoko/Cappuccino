@@ -58,7 +58,7 @@ namespace Cappuccino {
 		std::string current(){
 			char timestr[256];
    			time(&context.time);
-			strftime(timestr, 255, "%Y-%m-%d %H:%M:%S %Z", localtime(&context.time));	
+			strftime(timestr, 255, "%a, %d %b %Y %H:%M:%S %Z", localtime(&context.time));	
 			return timestr;
 		}
 
@@ -101,6 +101,14 @@ namespace Cappuccino {
 
 	namespace utils{
 
+		// ア！同じ処理の関数が2つもあるぞ！！！
+		const std::string current() {
+			char timestr[256];
+   			time(&context.time);
+			strftime(timestr, 255, "%a, %d %b %Y %H:%M:%S %Z", localtime(&context.time));	
+			return timestr;
+		}
+
 		std::string stripNl(const std::string &msg){
 			std::string res;
 			for (const auto c : msg) {
@@ -118,12 +126,9 @@ namespace Cappuccino {
 				result.push_back(std::make_unique<std::string>(
 					str.substr( 0, pos)
 				));
-				
 				auto sub_str_start_pos = pos;
-				Log::debug("BB ["+str+"]");
 			    std::string::size_type sec_pos = str.find("{");
 				if( sec_pos != std::string::npos){
-					Log::debug("AA ["+ str.substr( sub_str_start_pos,  sec_pos - sub_str_start_pos) +"]");
 					result.push_back(
 						std::make_unique<std::string>(
 							 str.substr( sub_str_start_pos, sec_pos - sub_str_start_pos)
@@ -305,12 +310,10 @@ namespace Cappuccino {
 			if(r){
 				url_ = r->url;
 				protocol_ = r->protocol;
-				Log::debug("===== +");
-				Log::debug(*protocol_);
-				Log::debug("=====");
-				Log::debug(*r->protocol);
-				Log::debug("===== =");	
-							
+
+				// 基本的にはOKでしょ
+				status_  = 200;
+				message_ = std::make_shared<string>("OK");											
 			}else{
 				throw std::runtime_error("Request expired!\n");
 			}
@@ -321,53 +324,48 @@ namespace Cappuccino {
 			message_(std::make_shared<string>(msg)),
 			protocol_(std::make_shared<string>(pro)),
 			body_(std::make_shared<string>(bod))
-		{
-			Log::debug("===== +");
-			Log::debug(*protocol_);
-			Log::debug("=====");
-			Log::debug(pro);
-			Log::debug("===== =");
-		}
+		{}
 
-		Response* message(string msg){
+		void message(string msg){
 			message_ = std::make_shared<string>(std::move(msg));
-			return this;
 		}
 
-		Response* status(int st){
+		void status(int st){
 			status_ = st;
-			return this;
 		}
 		
-		Response* headeer(const string& key,string val){
-			if(headerset.find(key)!= headerset.end())
+		void header(const string& key,string&& val){
+			if(headerset.find(key)!= headerset.end()){
 				Log::debug(key+" is already setted.");
-			headerset[key] = val;
-			return this;
+			}
+			headerset[key] = std::move(val);
 		}
 
-		Response* json(const nlohmann::json& text){
+		void json(const nlohmann::json& text){
 			body_ = std::make_shared<string>(text.dump());
-			headerset["Content-type"] = "Application/json";
-			return this;
+			headerset["Content-type"] = "application/json";
 		}
 
-		Response* file(const string&  filename){
+		void file(const string&  filename){
 			auto file = openFile(*context.view_root + "/" + filename);
 			body_ = std::make_shared<string>(file.first);
 			headerset["Content-type"] = move(file.second);
-			return this;
 		}
 
       	operator string() const{
       		std::string res = utils::stripNl(*protocol_)
 			  + " "	+ utils::stripNl(std::to_string(status_))
 			  + " " + utils::stripNl(*message_) + "\n";
+
 			for(auto it = headerset.begin(); it != headerset.end(); ++it) {
-				res += it->first + ": " + it->second +"\n";		
+				res += it->first + ": " + it->second +"\n";	
 			}
+			res += "Content-Length: " + std::to_string((*body_).size()+1)+"\n";
+			res += "Date: " + utils::current()+"\n";
+			res += "Server: Cappuccino\n";
+
 			res += "\n\n";
-			res += *body_ +"\n";
+			res += *body_ +"\n\n";
 			return res;
       	}
     };
@@ -468,11 +466,11 @@ namespace Cappuccino {
 		context.routes.insert( make_pair( move(url), move(F) ));
 	}
 
-	void root(string r){
+	void templates(string r){
 		context.view_root =  make_shared<string>(move(r));
 	}
 	
-	void resource(string s){
+	void publics(string s){
 		context.static_root = make_shared<string>(move(s));
 	}
 
@@ -509,6 +507,7 @@ namespace Cappuccino {
 	            }
 	            continue;
 	        }
+
 			for(fd = 0; fd < FD_SETSIZE; fd++){
 	            if(FD_ISSET(fd,&context.mask2fds)) {
 	                if(fd == context.sockfd) {
