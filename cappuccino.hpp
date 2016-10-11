@@ -104,7 +104,7 @@ namespace Cappuccino {
 		std::string stripNl(const std::string &msg){
 			std::string res;
 			for (const auto c : msg) {
-				if (c != '\n') {
+				if (c != '\n' && c != '\r') {
 					res += c;
 				}
 			}
@@ -222,7 +222,7 @@ namespace Cappuccino {
 				context.port = atoi(optarg);
 				break;
 			case 'v':
-				Log::info("version 0.0.3");
+				Log::debug("version 0.0.3");
 				exit(0);
 			}
 		}
@@ -296,8 +296,8 @@ namespace Cappuccino {
 		int status_;
 		shared_ptr<string> message_;
 		shared_ptr<string> url_;
-		shared_ptr<string> body_;
 		shared_ptr<string> protocol_;
+		shared_ptr<string> body_;
       public:
 
 		Response(weak_ptr<Request> req){
@@ -305,17 +305,29 @@ namespace Cappuccino {
 			if(r){
 				url_ = r->url;
 				protocol_ = r->protocol;
+				Log::debug("===== +");
+				Log::debug(*protocol_);
+				Log::debug("=====");
+				Log::debug(*r->protocol);
+				Log::debug("===== =");	
+							
 			}else{
 				throw std::runtime_error("Request expired!\n");
 			}
 		}
-
-		Response(int st,string msg,string pro, string bod):
+	
+		Response(int st,string msg, string pro, string bod):
 			status_(st),
 			message_(std::make_shared<string>(msg)),
-			body_(std::make_shared<string>(bod)),
-			protocol_(std::make_shared<string>(pro))
-		{}
+			protocol_(std::make_shared<string>(pro)),
+			body_(std::make_shared<string>(bod))
+		{
+			Log::debug("===== +");
+			Log::debug(*protocol_);
+			Log::debug("=====");
+			Log::debug(pro);
+			Log::debug("===== =");
+		}
 
 		Response* message(string msg){
 			message_ = std::make_shared<string>(std::move(msg));
@@ -348,10 +360,13 @@ namespace Cappuccino {
 		}
 
       	operator string() const{
-      		auto res = utils::stripNl(*protocol_) + " " + to_string(status_) +" "+ *message_ + "\n";
+      		std::string res = utils::stripNl(*protocol_)
+			  + " "	+ utils::stripNl(std::to_string(status_))
+			  + " " + utils::stripNl(*message_) + "\n";
 			for(auto it = headerset.begin(); it != headerset.end(); ++it) {
-				res += it->first + ": " + it->second +"\n";
+				res += it->first + ": " + it->second +"\n";		
 			}
+			res += "\n\n";
 			res += *body_ +"\n";
 			return res;
       	}
@@ -363,8 +378,7 @@ namespace Cappuccino {
 			Log::debug("REQUEST is empty ");
 			return Response(400, "Bad Request", "HTTP/1.1", "NN");
 		}
-
-		auto tops = utils::split(*lines[0], " ");
+		auto tops = utils::split( *lines[0], " ");
 		if(tops.size() < 3){
 			Log::debug("REQUEST header is invalied! ["+*tops[0]+"] ");
 			return Response(401, "Bad Request", "HTTP/1.1",  "NN");
@@ -398,7 +412,7 @@ namespace Cappuccino {
 			return f(move(request));
 		}
 
-		return Response( 404, "Not found", *request->url, "<h1>Not found!! </h1>");
+		return Response( 404, "Not found", *request->protocol, "<h1>Not found!! </h1>");
 	}
 
 	string receiveProcess(int sessionfd){
