@@ -1,15 +1,15 @@
 all: chino
 
-CC=g++
+CXX ?= g++
 CFLAG := -g -std=c++14 $(LIB) -Wall -Wno-unused-parameter -Wno-unused-variable -Wno-unused-function -O3 -lpthread
 INCLUDES := -Ilib/json/src
 
 
 chino:
-	$(CC) $(CFLAG) $(INCLUDES) chino.cpp -o chino
+	$(CXX) $(CFLAG) $(INCLUDES) chino.cpp -o chino
 
 test:
-	$(CC) $(CFLAG) $(INCLUDES) -DTEST chino.cpp -o chino
+	$(CXX) $(CFLAG) $(INCLUDES) -DTEST chino.cpp -o chino
 	./chino
 	rm chino
 
