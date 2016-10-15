@@ -6,7 +6,7 @@
 #include <csignal>
 #include <netinet/in.h>
 #include <sys/socket.h>
-#include <sys/types.h> 
+#include <sys/types.h>
 #include <sys/wait.h>
 #include <dirent.h>
 #include <fcntl.h>
@@ -24,6 +24,7 @@
 
 #include <json.hpp>
 
+#include <mutex>
 #include <ctime>
 
 #define BUF_SIZE 4096
@@ -58,7 +59,7 @@ namespace Cappuccino {
 		std::string current(){
 			char timestr[256];
    			time(&context.time);
-			strftime(timestr, 255, "%Y-%m-%d %H:%M:%S %Z", localtime(&context.time));	
+			strftime(timestr, 255, "%a, %d %b %Y %H:%M:%S %Z", localtime(&context.time));
 			return timestr;
 		}
 
@@ -101,10 +102,18 @@ namespace Cappuccino {
 
 	namespace utils{
 
+		// ア！同じ処理の関数が2つもあるぞ！！！
+		const std::string current() {
+			char timestr[256];
+   			time(&context.time);
+			strftime(timestr, 255, "%a, %d %b %Y %H:%M:%S %Z", localtime(&context.time));
+			return timestr;
+		}
+
 		std::string stripNl(const std::string &msg){
 			std::string res;
 			for (const auto c : msg) {
-				if (c != '\n') {
+				if (c != '\n' && c != '\r') {
 					res += c;
 				}
 			}
@@ -118,12 +127,9 @@ namespace Cappuccino {
 				result.push_back(std::make_unique<std::string>(
 					str.substr( 0, pos)
 				));
-				
 				auto sub_str_start_pos = pos;
-				Log::debug("BB ["+str+"]");
 			    std::string::size_type sec_pos = str.find("{");
 				if( sec_pos != std::string::npos){
-					Log::debug("AA ["+ str.substr( sub_str_start_pos,  sec_pos - sub_str_start_pos) +"]");
 					result.push_back(
 						std::make_unique<std::string>(
 							 str.substr( sub_str_start_pos, sec_pos - sub_str_start_pos)
@@ -132,7 +138,7 @@ namespace Cappuccino {
 					result.push_back(std::make_unique<std::string>(str.substr( sec_pos, str.size())));
 					return std::move(result);
 				}
-			}	
+			}
 			return std::move(result);
 		}
 
@@ -159,7 +165,7 @@ namespace Cappuccino {
 			exit(EXIT_FAILURE);
 		}
 		memset( &server, 0, sizeof(server));
-		server.sin_family = AF_INET;	
+		server.sin_family = AF_INET;
 		server.sin_addr.s_addr = INADDR_ANY;
 		server.sin_port = htons(context.port);
 
@@ -170,7 +176,7 @@ namespace Cappuccino {
   		if(setsockopt(context.sockfd, SOL_SOCKET, SO_REUSEADDR,
 	        &temp, sizeof(int))){
 		}
-		
+
 		if (bind(context.sockfd, (struct sockaddr *) &server, sizeof(server)) < 0) {
 			exit(EXIT_FAILURE);
 		}
@@ -189,7 +195,7 @@ namespace Cappuccino {
 	pair<string,string> openFile(string aFilename){
 		auto filename = aFilename;
 		std::ifstream ifs( filename, std::ios::in | std::ios::binary);
-		if(ifs.fail()){		
+		if(ifs.fail()){
 			throw std::runtime_error("No such file or directory \""+ filename +"\"\n");
 		}
 		ifs.seekg( 0, std::ios::end);
@@ -216,13 +222,13 @@ namespace Cappuccino {
 		while((result = getopt(argc,argv,"dvp:")) != -1){
 			switch(result){
 			case 'd':
-				Log::LogLevel = 1;	
+				Log::LogLevel = 1;
 				break;
 			case 'p':
 				context.port = atoi(optarg);
 				break;
 			case 'v':
-				Log::info("version 0.0.3");
+				Log::debug("version 0.0.3");
 				exit(0);
 			}
 		}
@@ -284,6 +290,13 @@ namespace Cappuccino {
 			return paramset[key];
 		}
 
+		const nlohmann::json json(){
+			try{
+				return nlohmann::json::parse(*body);
+			}catch(std::invalid_argument e){}
+			return  nlohmann::json({});
+		}
+
 		bool isCorrect(){
 			return correctRequest;
 		}
@@ -296,8 +309,8 @@ namespace Cappuccino {
 		int status_;
 		shared_ptr<string> message_;
 		shared_ptr<string> url_;
-		shared_ptr<string> body_;
 		shared_ptr<string> protocol_;
+		shared_ptr<string> body_;
       public:
 
 		Response(weak_ptr<Request> req){
@@ -305,54 +318,62 @@ namespace Cappuccino {
 			if(r){
 				url_ = r->url;
 				protocol_ = r->protocol;
+
+				// 基本的にはOKでしょ
+				status_  = 200;
+				message_ = std::make_shared<string>("OK");
 			}else{
 				throw std::runtime_error("Request expired!\n");
 			}
 		}
 
-		Response(int st,string msg,string pro, string bod):
+		Response(int st,string msg, string pro, string bod):
 			status_(st),
 			message_(std::make_shared<string>(msg)),
-			body_(std::make_shared<string>(bod)),
-			protocol_(std::make_shared<string>(pro))
+			protocol_(std::make_shared<string>(pro)),
+			body_(std::make_shared<string>(bod))
 		{}
 
-		Response* message(string msg){
+		void message(string msg){
 			message_ = std::make_shared<string>(std::move(msg));
-			return this;
 		}
 
-		Response* status(int st){
+		void status(int st){
 			status_ = st;
-			return this;
 		}
-		
-		Response* headeer(const string& key,string val){
-			if(headerset.find(key)!= headerset.end())
+
+		void header(const string& key,string&& val){
+			if(headerset.find(key)!= headerset.end()){
 				Log::debug(key+" is already setted.");
-			headerset[key] = val;
-			return this;
+			}
+			headerset[key] = std::move(val);
 		}
 
-		Response* json(const nlohmann::json& text){
+		void json(const nlohmann::json& text){
 			body_ = std::make_shared<string>(text.dump());
-			headerset["Content-type"] = "Application/json";
-			return this;
+			headerset["Content-type"] = "application/json";
 		}
 
-		Response* file(const string&  filename){
+		void file(const string&  filename){
 			auto file = openFile(*context.view_root + "/" + filename);
 			body_ = std::make_shared<string>(file.first);
 			headerset["Content-type"] = move(file.second);
-			return this;
 		}
 
       	operator string() const{
-      		auto res = utils::stripNl(*protocol_) + " " + to_string(status_) +" "+ *message_ + "\n";
+      		std::string res = utils::stripNl(*protocol_)
+			  + " "	+ utils::stripNl(std::to_string(status_))
+			  + " " + utils::stripNl(*message_) + "\n";
+
 			for(auto it = headerset.begin(); it != headerset.end(); ++it) {
 				res += it->first + ": " + it->second +"\n";
 			}
-			res += *body_ +"\n";
+			res += "Content-Length: " + std::to_string((*body_).size()+1)+"\n";
+			res += "Date: " + utils::current()+"\n";
+			res += "Server: Cappuccino\n";
+
+			res += "\n\n";
+			res += *body_ +"\n\n";
 			return res;
       	}
     };
@@ -363,8 +384,7 @@ namespace Cappuccino {
 			Log::debug("REQUEST is empty ");
 			return Response(400, "Bad Request", "HTTP/1.1", "NN");
 		}
-
-		auto tops = utils::split(*lines[0], " ");
+		auto tops = utils::split( *lines[0], " ");
 		if(tops.size() < 3){
 			Log::debug("REQUEST header is invalied! ["+*tops[0]+"] ");
 			return Response(401, "Bad Request", "HTTP/1.1",  "NN");
@@ -398,7 +418,7 @@ namespace Cappuccino {
 			return f(move(request));
 		}
 
-		return Response( 404, "Not found", *request->url, "<h1>Not found!! </h1>");
+		return Response( 404, "Not found", *request->protocol, "<h1>Not found!! </h1>");
 	}
 
 	string receiveProcess(int sessionfd){
@@ -415,9 +435,9 @@ namespace Cappuccino {
 				memset(&buf, 0, sizeof(buf));
 			}
 		}while(read(sessionfd, buf+strlen(buf), sizeof(buf) - strlen(buf)) > 0);
-		return createResponse(buf);	
+		return createResponse(buf);
 	}
-	
+
 
 	void load(string directory, string filename) noexcept{
 		if(filename == "." || filename == "..") return;
@@ -426,23 +446,22 @@ namespace Cappuccino {
 		DIR* dir = opendir(directory.c_str());
 		if(dir != NULL){
 			struct dirent* dent;
-	        dent = readdir(dir);
-		    while(dent!=NULL){
-		        dent = readdir(dir);
-		        if(dent!=NULL)
-			        load(directory, string(dent->d_name));
-		    }
+	    dent = readdir(dir);
+		  while(dent!=NULL){
+        load(directory, string(dent->d_name));
+				dent = readdir(dir);
+	    }
 			if(dir!=NULL){
 		    	closedir(dir);
 			}
 		}else{
 			Log::debug("add "+directory);
 			context.routes.insert( make_pair(
-				"/" + directory, 
+				"/" + directory,
 				[directory,filename](std::shared_ptr<Request> request) -> Cappuccino::Response{
 					return Response(200,"OK","HTTP/1.1",openFile(directory).first);
 				}
-			));			
+			));
 		}
 	}
 
@@ -454,13 +473,16 @@ namespace Cappuccino {
 		context.routes.insert( make_pair( move(url), move(F) ));
 	}
 
-	void root(string r){
+	void templates(string r){
 		context.view_root =  make_shared<string>(move(r));
 	}
-	
-	void resource(string s){
+
+	void publics(string s){
 		context.static_root = make_shared<string>(move(s));
 	}
+
+
+	std::mutex mtx;
 
 	void run(){
 
@@ -472,19 +494,24 @@ namespace Cappuccino {
 		struct sockaddr_in client;
         int    fd;
         struct timeval tv;
+		std::vector<std::thread> threads;
 
 	    for(int i = 0;i < FD_SETSIZE; i++){
 	        cd[i] = 0;
 	    }
 
+
+
 	    while(1) {
 
 	        tv.tv_sec = 0;
 	        tv.tv_usec = 0;
-
+			// mask2fds <- mask1fds
 	        memcpy(&context.mask2fds, &context.mask1fds, sizeof(context.mask1fds));
 
+			// mask2fdsを監視
 	        int select_result = select(FD_SETSIZE, &context.mask2fds, (fd_set *)0, (fd_set *)0, &tv);
+			//
 	        if(select_result < 1) {
 	            for(fd = 0; fd < FD_SETSIZE; fd++) {
 	                if(cd[fd] == 1) {
@@ -495,12 +522,14 @@ namespace Cappuccino {
 	            }
 	            continue;
 	        }
+
 			for(fd = 0; fd < FD_SETSIZE; fd++){
+				// i番目のfdに読み込みデータがある
 	            if(FD_ISSET(fd,&context.mask2fds)) {
 	                if(fd == context.sockfd) {
 	                	memset( &client, 0, sizeof(client));
 						int len = sizeof(client);
-						int clientfd = accept(context.sockfd, 
+						int clientfd = accept(context.sockfd,
 							(struct sockaddr *)&client,(socklen_t *) &len);
 						FD_SET(clientfd, &context.mask1fds);
 	                }else {
@@ -509,14 +538,18 @@ namespace Cappuccino {
 	                        FD_CLR(fd, &context.mask1fds);
 	                        cd[fd] = 0;
 	                    } else {
-							string response = receiveProcess(fd);
-							Log::debug(std::to_string(write(fd, response.c_str(), response.size())));
-	                        cd[fd] = 1;
+							std::async(std::launch::async, [&cd,&fd] {
+								mtx.lock();
+								string response = receiveProcess(fd);
+								write(fd, response.c_str(), response.size());
+		                        cd[fd] = 1;
+								mtx.unlock();
+							});
 	                    }
 	                }
 	            }
 	        }
-	    }	    
+	    }
 	}
 
 	void Cappuccino(int argc, char *argv[]) {
@@ -530,7 +563,7 @@ namespace Cocoa{
 	using namespace Cappuccino;
 	using namespace std;
 
-	// Unit Test	
+	// Unit Test
 	void testOpenFile(){
 		auto res = openFile("html/index.html");
 		auto lines = utils::split(res.first, "\n");
@@ -545,4 +578,3 @@ namespace Cocoa{
 		}
 	}
 };
-

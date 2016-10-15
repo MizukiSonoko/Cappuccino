@@ -1,10 +1,26 @@
-language: cpp
-compiler:
-    - clang
+language: generic
+os: osx
+matrix:
+  include:
+    - os: linux
+      env: COMPILER_NAME=gcc CXX=g++-5 CC=gcc-5
+      addons:
+        apt:
+          packages:
+            - g++-5
+          sources: &sources
+            - llvm-toolchain-precise-3.8
+            - ubuntu-toolchain-r-test
+    - os: linux
+      env: COMPILER_NAME=clang CXX=clang++-3.8 CC=clang-3.8
+      addons:
+        apt:
+          packages:
+            - clang-3.8
+          sources: *sources
+install:
+  - git clone https://github.com/nlohmann/json.git lib/json
 script:
   - clang++ --version
+  - g++ --version
   - make test
-install:
-    - sudo add-apt-repository --yes ppa:ubuntu-toolchain-r/test
-    - sudo apt-get -qq update
-    - sudo apt-get -qq install g++-4.9
