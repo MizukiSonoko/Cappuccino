@@ -6,7 +6,7 @@
 #include <csignal>
 #include <netinet/in.h>
 #include <sys/socket.h>
-#include <sys/types.h> 
+#include <sys/types.h>
 #include <sys/wait.h>
 #include <dirent.h>
 #include <fcntl.h>
@@ -24,6 +24,7 @@
 
 #include <json.hpp>
 
+#include <mutex>
 #include <ctime>
 
 #define BUF_SIZE 4096
@@ -58,7 +59,7 @@ namespace Cappuccino {
 		std::string current(){
 			char timestr[256];
    			time(&context.time);
-			strftime(timestr, 255, "%a, %d %b %Y %H:%M:%S %Z", localtime(&context.time));	
+			strftime(timestr, 255, "%a, %d %b %Y %H:%M:%S %Z", localtime(&context.time));
 			return timestr;
 		}
 
@@ -105,7 +106,7 @@ namespace Cappuccino {
 		const std::string current() {
 			char timestr[256];
    			time(&context.time);
-			strftime(timestr, 255, "%a, %d %b %Y %H:%M:%S %Z", localtime(&context.time));	
+			strftime(timestr, 255, "%a, %d %b %Y %H:%M:%S %Z", localtime(&context.time));
 			return timestr;
 		}
 
@@ -137,7 +138,7 @@ namespace Cappuccino {
 					result.push_back(std::make_unique<std::string>(str.substr( sec_pos, str.size())));
 					return std::move(result);
 				}
-			}	
+			}
 			return std::move(result);
 		}
 
@@ -164,7 +165,7 @@ namespace Cappuccino {
 			exit(EXIT_FAILURE);
 		}
 		memset( &server, 0, sizeof(server));
-		server.sin_family = AF_INET;	
+		server.sin_family = AF_INET;
 		server.sin_addr.s_addr = INADDR_ANY;
 		server.sin_port = htons(context.port);
 
@@ -175,7 +176,7 @@ namespace Cappuccino {
   		if(setsockopt(context.sockfd, SOL_SOCKET, SO_REUSEADDR,
 	        &temp, sizeof(int))){
 		}
-		
+
 		if (bind(context.sockfd, (struct sockaddr *) &server, sizeof(server)) < 0) {
 			exit(EXIT_FAILURE);
 		}
@@ -194,7 +195,7 @@ namespace Cappuccino {
 	pair<string,string> openFile(string aFilename){
 		auto filename = aFilename;
 		std::ifstream ifs( filename, std::ios::in | std::ios::binary);
-		if(ifs.fail()){		
+		if(ifs.fail()){
 			throw std::runtime_error("No such file or directory \""+ filename +"\"\n");
 		}
 		ifs.seekg( 0, std::ios::end);
@@ -221,7 +222,7 @@ namespace Cappuccino {
 		while((result = getopt(argc,argv,"dvp:")) != -1){
 			switch(result){
 			case 'd':
-				Log::LogLevel = 1;	
+				Log::LogLevel = 1;
 				break;
 			case 'p':
 				context.port = atoi(optarg);
@@ -289,6 +290,13 @@ namespace Cappuccino {
 			return paramset[key];
 		}
 
+		const nlohmann::json json(){
+			try{
+				return nlohmann::json::parse(*body);
+			}catch(std::invalid_argument e){}
+			return  nlohmann::json({});
+		}
+
 		bool isCorrect(){
 			return correctRequest;
 		}
@@ -313,12 +321,12 @@ namespace Cappuccino {
 
 				// 基本的にはOKでしょ
 				status_  = 200;
-				message_ = std::make_shared<string>("OK");											
+				message_ = std::make_shared<string>("OK");
 			}else{
 				throw std::runtime_error("Request expired!\n");
 			}
 		}
-	
+
 		Response(int st,string msg, string pro, string bod):
 			status_(st),
 			message_(std::make_shared<string>(msg)),
@@ -333,7 +341,7 @@ namespace Cappuccino {
 		void status(int st){
 			status_ = st;
 		}
-		
+
 		void header(const string& key,string&& val){
 			if(headerset.find(key)!= headerset.end()){
 				Log::debug(key+" is already setted.");
@@ -358,7 +366,7 @@ namespace Cappuccino {
 			  + " " + utils::stripNl(*message_) + "\n";
 
 			for(auto it = headerset.begin(); it != headerset.end(); ++it) {
-				res += it->first + ": " + it->second +"\n";	
+				res += it->first + ": " + it->second +"\n";
 			}
 			res += "Content-Length: " + std::to_string((*body_).size()+1)+"\n";
 			res += "Date: " + utils::current()+"\n";
@@ -427,9 +435,9 @@ namespace Cappuccino {
 				memset(&buf, 0, sizeof(buf));
 			}
 		}while(read(sessionfd, buf+strlen(buf), sizeof(buf) - strlen(buf)) > 0);
-		return createResponse(buf);	
+		return createResponse(buf);
 	}
-	
+
 
 	void load(string directory, string filename) noexcept{
 		if(filename == "." || filename == "..") return;
@@ -438,23 +446,22 @@ namespace Cappuccino {
 		DIR* dir = opendir(directory.c_str());
 		if(dir != NULL){
 			struct dirent* dent;
-	        dent = readdir(dir);
-		    while(dent!=NULL){
-		        dent = readdir(dir);
-		        if(dent!=NULL)
-			        load(directory, string(dent->d_name));
-		    }
+	    dent = readdir(dir);
+		  while(dent!=NULL){
+        load(directory, string(dent->d_name));
+				dent = readdir(dir);
+	    }
 			if(dir!=NULL){
 		    	closedir(dir);
 			}
 		}else{
 			Log::debug("add "+directory);
 			context.routes.insert( make_pair(
-				"/" + directory, 
+				"/" + directory,
 				[directory,filename](std::shared_ptr<Request> request) -> Cappuccino::Response{
 					return Response(200,"OK","HTTP/1.1",openFile(directory).first);
 				}
-			));			
+			));
 		}
 	}
 
@@ -469,10 +476,13 @@ namespace Cappuccino {
 	void templates(string r){
 		context.view_root =  make_shared<string>(move(r));
 	}
-	
+
 	void publics(string s){
 		context.static_root = make_shared<string>(move(s));
 	}
+
+
+	std::mutex mtx;
 
 	void run(){
 
@@ -484,19 +494,24 @@ namespace Cappuccino {
 		struct sockaddr_in client;
         int    fd;
         struct timeval tv;
+		std::vector<std::thread> threads;
 
 	    for(int i = 0;i < FD_SETSIZE; i++){
 	        cd[i] = 0;
 	    }
 
+
+
 	    while(1) {
 
 	        tv.tv_sec = 0;
 	        tv.tv_usec = 0;
-
+			// mask2fds <- mask1fds
 	        memcpy(&context.mask2fds, &context.mask1fds, sizeof(context.mask1fds));
 
+			// mask2fdsを監視
 	        int select_result = select(FD_SETSIZE, &context.mask2fds, (fd_set *)0, (fd_set *)0, &tv);
+			//
 	        if(select_result < 1) {
 	            for(fd = 0; fd < FD_SETSIZE; fd++) {
 	                if(cd[fd] == 1) {
@@ -509,11 +524,12 @@ namespace Cappuccino {
 	        }
 
 			for(fd = 0; fd < FD_SETSIZE; fd++){
+				// i番目のfdに読み込みデータがある
 	            if(FD_ISSET(fd,&context.mask2fds)) {
 	                if(fd == context.sockfd) {
 	                	memset( &client, 0, sizeof(client));
 						int len = sizeof(client);
-						int clientfd = accept(context.sockfd, 
+						int clientfd = accept(context.sockfd,
 							(struct sockaddr *)&client,(socklen_t *) &len);
 						FD_SET(clientfd, &context.mask1fds);
 	                }else {
@@ -522,14 +538,18 @@ namespace Cappuccino {
 	                        FD_CLR(fd, &context.mask1fds);
 	                        cd[fd] = 0;
 	                    } else {
-							string response = receiveProcess(fd);
-							Log::debug(std::to_string(write(fd, response.c_str(), response.size())));
-	                        cd[fd] = 1;
+							std::async(std::launch::async, [&cd,&fd] {
+								mtx.lock();
+								string response = receiveProcess(fd);
+								write(fd, response.c_str(), response.size());
+		                        cd[fd] = 1;
+								mtx.unlock();
+							});
 	                    }
 	                }
 	            }
 	        }
-	    }	    
+	    }
 	}
 
 	void Cappuccino(int argc, char *argv[]) {
@@ -543,7 +563,7 @@ namespace Cocoa{
 	using namespace Cappuccino;
 	using namespace std;
 
-	// Unit Test	
+	// Unit Test
 	void testOpenFile(){
 		auto res = openFile("html/index.html");
 		auto lines = utils::split(res.first, "\n");
@@ -558,4 +578,3 @@ namespace Cocoa{
 		}
 	}
 };
-

@@ -3,6 +3,9 @@
 #include <json.hpp>
 
 using json = nlohmann::json;
+using Response = Cappuccino::Response;
+using Request = Cappuccino::Request;
+
 
 int main(int argc, char *argv[]){
 
@@ -11,23 +14,27 @@ int main(int argc, char *argv[]){
 	Cocoa::testOpenInvalidFile();
 #else
 	Cappuccino::Cappuccino(argc, argv);	
-	Cappuccino::root("html");
-	Cappuccino::route("/",[](std::shared_ptr<Cappuccino::Request> request) -> Cappuccino::Response{
-		return *Cappuccino::Response(request).status(200)->message("OK")->file("index.html");
+	
+	Cappuccino::templates("html");
+	Cappuccino::publics("public");
+
+	Cappuccino::route("/",[](std::shared_ptr<Request> request) -> Response{
+		auto res =  Response(request);
+		res.file("index.html");
+		return res;
 	});
 
-	Cappuccino::route("/json",[](std::shared_ptr<Cappuccino::Request> request) -> Cappuccino::Response{
-		json res = {
-			{"status","ok"}
+	Cappuccino::route("/json",[](std::shared_ptr<Request> request) -> Response{
+		json res_json = {
+			{"message","Hello, World!"}
 		};
-		Cappuccino::Log::debug("+++ ["+*request->body+"]");
-		if(*request->body != ""){
-			Cappuccino::Log::debug(json::parse((*request->body))["A"]);
-		}
-		return *Cappuccino::Response(request).status(200)->message("OK")->json(res);
+		auto res = Response(request);
+		res.json(res_json);
+		return res;
 	});
 
 	Cappuccino::run();
+
 #endif
 	return 0;
 }
