@@ -1,5 +1,4 @@
-language: cpp
-language: cpp
+language: generic
 os: osx
 matrix:
   include:
@@ -23,4 +22,5 @@ install:
   - git clone https://github.com/nlohmann/json.git lib/json
 script:
   - clang++ --version
+  - g++ --version
   - make test
