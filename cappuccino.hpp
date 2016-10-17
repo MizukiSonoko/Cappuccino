@@ -241,12 +241,12 @@ namespace Cappuccino {
 	  public:
 		Request(
 			std::unique_ptr<string> aMethod,
-			std::unique_ptr<string> aUrl,
+			std::unique_ptr<string> aPath,
 			std::unique_ptr<string> aProtocol,
 			std::unique_ptr<string> abody
 		):
 			method(move(aMethod)),
-			url(move(aUrl)),
+			path(move(aPath)),
 			protocol(move(aProtocol)),
 			body(move(abody))
 		{
@@ -254,7 +254,7 @@ namespace Cappuccino {
 		}
 
 		const std::shared_ptr<string> method;
-		const std::shared_ptr<string> url;
+		const std::shared_ptr<string> path;
 		const std::shared_ptr<string> protocol;
 		const std::shared_ptr<string> body;
 
@@ -308,7 +308,7 @@ namespace Cappuccino {
 
 		int status_;
 		shared_ptr<string> message_;
-		shared_ptr<string> url_;
+		shared_ptr<string> path_;
 		shared_ptr<string> protocol_;
 		shared_ptr<string> method_;
 		shared_ptr<string> body_;
@@ -318,7 +318,7 @@ namespace Cappuccino {
 			auto r = req.lock();
 			if(r){
 				method_ = r->method;
-				url_ = r->url;
+				path_ = r->path;
 				protocol_ = r->protocol;
 
 				// 基本的にはOKでしょ
@@ -415,8 +415,8 @@ namespace Cappuccino {
 			return Response( 401,"Bad Request", *request->protocol, "AA");
 		}
 
-		if(context.routes.find(*request->url) != context.routes.end()){
-			auto f = context.routes[*request->url];
+		if(context.routes.find(*request->path) != context.routes.end()){
+			auto f = context.routes[*request->path];
 			return f(move(request));
 		}
 
@@ -473,8 +473,8 @@ namespace Cappuccino {
 		load(*context.static_root,"");
 	}
 
-	void route(string url,std::function<Response(std::shared_ptr<Request>)> F){
-		context.routes.insert( make_pair( move(url), move(F) ));
+	void route(string path,std::function<Response(std::shared_ptr<Request>)> F){
+		context.routes.insert( make_pair( move(path), move(F) ));
 	}
 
 	void templates(string r){
