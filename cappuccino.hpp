@@ -110,7 +110,7 @@ namespace Cappuccino {
 			return timestr;
 		}
 
-		std::string stripNl(const std::string &msg){
+		std::string&& stripNl(const std::string &msg){
 			std::string res;
 			for (const auto c : msg) {
 				if (c != '\n' && c != '\r') {
@@ -120,7 +120,7 @@ namespace Cappuccino {
 			return std::move(res);
 		}
 
-		std::vector<std::unique_ptr<std::string>> splitRequest(const std::string& str) noexcept{
+		std::vector<std::unique_ptr<std::string>>&& splitRequest(const std::string& str) noexcept{
 			std::vector<std::unique_ptr<std::string>> result;
 		    std::string::size_type pos = str.find("\n", 0);
 			if(pos != std::string::npos){
@@ -142,7 +142,7 @@ namespace Cappuccino {
 			return std::move(result);
 		}
 
-		std::vector<std::unique_ptr<std::string>> split(const std::string& str, std::string delim) noexcept{
+		std::vector<std::unique_ptr<std::string>>&& split(const std::string& str, std::string delim) noexcept{
 			std::vector<std::unique_ptr<std::string>> result;
 		    std::string::size_type pos = 0;
 		    while(pos != std::string::npos) {
@@ -310,12 +310,14 @@ namespace Cappuccino {
 		shared_ptr<string> message_;
 		shared_ptr<string> url_;
 		shared_ptr<string> protocol_;
+		shared_ptr<string> method_;
 		shared_ptr<string> body_;
       public:
 
 		Response(weak_ptr<Request> req){
 			auto r = req.lock();
 			if(r){
+				method_ = r->method;
 				url_ = r->url;
 				protocol_ = r->protocol;
 
@@ -342,22 +344,22 @@ namespace Cappuccino {
 			status_ = st;
 		}
 
-		void header(const string& key,string&& val){
+		void header(const string& key,string val){
 			if(headerset.find(key)!= headerset.end()){
 				Log::debug(key+" is already setted.");
 			}
-			headerset[key] = std::move(val);
+			headerset[key] = val;
 		}
 
 		void json(const nlohmann::json& text){
 			body_ = std::make_shared<string>(text.dump());
-			headerset["Content-type"] = "application/json";
+			headerset["Content-Type"] = "application/json";
 		}
 
 		void file(const string&  filename){
 			auto file = openFile(*context.view_root + "/" + filename);
 			body_ = std::make_shared<string>(file.first);
-			headerset["Content-type"] = move(file.second);
+			headerset["Content-Type"] = move(file.second);
 		}
 
       	operator string() const{
@@ -372,7 +374,7 @@ namespace Cappuccino {
 			res += "Date: " + utils::current()+"\n";
 			res += "Server: Cappuccino\n";
 
-			res += "\n\n";
+			res += "\n";
 			res += *body_ +"\n\n";
 			return res;
       	}
@@ -459,7 +461,10 @@ namespace Cappuccino {
 			context.routes.insert( make_pair(
 				"/" + directory,
 				[directory,filename](std::shared_ptr<Request> request) -> Cappuccino::Response{
-					return Response(200,"OK","HTTP/1.1",openFile(directory).first);
+					auto file = openFile(directory);
+					auto res = Response(200,"OK","HTTP/1.1",file.first);
+					res.header("Content-Type", file.second);
+					return res;
 				}
 			));
 		}
