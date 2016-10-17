@@ -1,5 +1,6 @@
 # Cappuccino
 [![Build Status](https://travis-ci.org/MizukiSonoko/Cappuccino.svg?branch=master)](https://travis-ci.org/MizukiSonoko/Cappuccino)
+[![Build Status](https://travis-ci.org/MizukiSonoko/Cappuccino.svg?branch=develop)](https://travis-ci.org/MizukiSonoko/Cappuccino)
 
 Tiny HTTP server library.
 
@@ -21,11 +22,16 @@ $ ./chino
 
 # Environments
 
+### Language
+- C++14
+
+### Compiler
+
 - clang version 3.4~
 - gcc   version 5.0~
 
 
-# Dependics 
+### Dependics 
 - [Json](https://github.com/nlohmann/json)
 
 # Usage
