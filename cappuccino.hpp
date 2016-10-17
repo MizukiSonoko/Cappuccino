@@ -120,7 +120,7 @@ namespace Cappuccino {
 			return std::move(res);
 		}
 
-		std::vector<std::unique_ptr<std::string>>&& splitRequest(const std::string& str) noexcept{
+		std::vector<std::unique_ptr<std::string>> splitRequest(const std::string& str) noexcept{
 			std::vector<std::unique_ptr<std::string>> result;
 		    std::string::size_type pos = str.find("\n", 0);
 			if(pos != std::string::npos){
@@ -136,13 +136,13 @@ namespace Cappuccino {
 						)
 					);
 					result.push_back(std::make_unique<std::string>(str.substr( sec_pos, str.size())));
-					return std::move(result);
+					return result;
 				}
 			}
-			return std::move(result);
+			return result;
 		}
 
-		std::vector<std::unique_ptr<std::string>>&& split(const std::string& str, std::string delim) noexcept{
+		std::vector<std::unique_ptr<std::string>> split(const std::string& str, std::string delim) noexcept{
 			std::vector<std::unique_ptr<std::string>> result;
 		    std::string::size_type pos = 0;
 		    while(pos != std::string::npos) {
@@ -155,7 +155,7 @@ namespace Cappuccino {
 		        }
 		        pos = p + delim.size();
 		    }
-		    return std::move(result);
+		    return result;
 		}
 	};
 
@@ -228,7 +228,7 @@ namespace Cappuccino {
 				context.port = atoi(optarg);
 				break;
 			case 'v':
-				Log::debug("version 0.0.3");
+				Log::debug("version 0.1.0");
 				exit(0);
 			}
 		}
@@ -448,16 +448,15 @@ namespace Cappuccino {
 		DIR* dir = opendir(directory.c_str());
 		if(dir != NULL){
 			struct dirent* dent;
-	    dent = readdir(dir);
-		  while(dent!=NULL){
-        load(directory, string(dent->d_name));
+	        dent = readdir(dir);
+		    while(dent!=NULL){
+                load(directory, string(dent->d_name));
 				dent = readdir(dir);
-	    }
+	        }
 			if(dir!=NULL){
 		    	closedir(dir);
 			}
 		}else{
-			Log::debug("add "+directory);
 			context.routes.insert( make_pair(
 				"/" + directory,
 				[directory,filename](std::shared_ptr<Request> request) -> Cappuccino::Response{
