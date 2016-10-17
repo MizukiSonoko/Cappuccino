@@ -7,20 +7,26 @@ Tiny HTTP server library.
 
 # version
 ```
-0.0.1
+0.1.0
 ```
 
 # Micro sample
 ```shell
 $ git clone https://github.com/MizukiSonoko/Cappuccino.git
 $ cd Cappuccino
+$ git clone https://github.com/nlohmann/json lib/json
 $ make
-$ ./sample
+$ ./chino
 ```
 
 # Environments
 
-- clang version 3.4
+- clang version 3.4~
+- gcc   version 5.0~
+
+
+# Dependics 
+- [Json](https://github.com/nlohmann/json)
 
 # Usage
 
@@ -34,13 +40,16 @@ int main(int argc, char *argv[]) {
 	Cappuccino::Cappuccino(argc, argv);
 
 	// set document_root
-	Cappuccino::root("html");
+	Cappuccino::templates("html");
+	Cappuccino::publics("public");
 	
 	// add function
-	Cappuccino::route("/",[](std::shared_ptr<Cappuccino::Request> request) -> Cappuccino::Response{
-		return *Cappuccino::Response(request).status(200)->message("OK")->file("index.html");
+	Cappuccino::route("/",[](std::shared_ptr<Request> request) -> Response{
+		auto res =  Response(request);
+		res.file("index.html");
+		return res;
 	});
-
+	
 	// runnning
 	Cappuccino::run();
 	

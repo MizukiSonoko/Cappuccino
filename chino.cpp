@@ -13,6 +13,7 @@ int main(int argc, char *argv[]){
 	Cocoa::testOpenFile();
 	Cocoa::testOpenInvalidFile();
 #else
+
 	Cappuccino::Cappuccino(argc, argv);	
 	
 	Cappuccino::templates("html");
