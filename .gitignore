@@ -1,0 +1,6 @@
+*.dSYM
+.idea/Cappuccino.iml
+.idea/misc.xml
+.idea/modules.xml
+.idea/workspace.xml
+samples/chino

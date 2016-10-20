@@ -23,4 +23,4 @@ install:
 script:
   - clang++ --version
   - g++ --version
-  - make test
+  - cd samples; make test
