@@ -191,7 +191,6 @@ namespace Cappuccino {
 
 	using namespace std;
 
-
 	pair<string,string> openFile(string aFilename){
 		auto filename = aFilename;
 		std::ifstream ifs( filename, std::ios::in | std::ios::binary);
@@ -246,15 +245,27 @@ namespace Cappuccino {
 			std::unique_ptr<string> abody
 		):
 			method(move(aMethod)),
-			path(move(aPath)),
 			protocol(move(aProtocol)),
 			body(move(abody))
 		{
+			std::vector<std::unique_ptr<string>> path_param = utils::split( *aPath, "?");
+			path = std::move(path_param.at(0));
+			if( path_param.size() == 2){
+				auto params = utils::split( *path_param[1],"&");
+				for(auto&& param : params){
+					auto param_key_val = utils::split( *param, "=");
+					if(param_key_val.size() == 2) {
+						paramset.insert(
+							make_pair( *param_key_val[0], *param_key_val[1])
+						);
+					}
+				}
+			}
 			correctRequest = validateHttpVersion(*protocol);
 		}
 
 		const std::shared_ptr<string> method;
-		const std::shared_ptr<string> path;
+		std::shared_ptr<string> path;
 		const std::shared_ptr<string> protocol;
 		const std::shared_ptr<string> body;
 
@@ -293,11 +304,11 @@ namespace Cappuccino {
 		const nlohmann::json json(){
 			try{
 				return nlohmann::json::parse(*body);
-			}catch(std::invalid_argument e){}
+			} catch(std::invalid_argument e){}
 			return  nlohmann::json({});
 		}
 
-		bool isCorrect(){
+		bool isCorrect() {
 			return correctRequest;
 		}
 	};
@@ -362,7 +373,7 @@ namespace Cappuccino {
 			headerset["Content-Type"] = move(file.second);
 		}
 
-      	operator string() const{
+  	operator string() const{
       		std::string res = utils::stripNl(*protocol_)
 			  + " "	+ utils::stripNl(std::to_string(status_))
 			  + " " + utils::stripNl(*message_) + "\n";
@@ -440,7 +451,6 @@ namespace Cappuccino {
 		return createResponse(buf);
 	}
 
-
 	void load(string directory, string filename) noexcept{
 		if(filename == "." || filename == "..") return;
 		if(filename != "")
@@ -485,11 +495,9 @@ namespace Cappuccino {
 		context.static_root = make_shared<string>(move(s));
 	}
 
-
 	std::mutex mtx;
 
-	void run(){
-
+	void run() {
 		init_socket();
 		signal_utils::init_signal();
 		loadStaticFiles();
