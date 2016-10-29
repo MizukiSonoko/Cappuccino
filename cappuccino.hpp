@@ -110,14 +110,14 @@ namespace Cappuccino {
 			return timestr;
 		}
 
-		std::string&& stripNl(const std::string &msg){
-			std::string res;
+		std::string stripNl(const std::string& msg){
+			std::string res = "";
 			for (const auto c : msg) {
 				if (c != '\n' && c != '\r') {
 					res += c;
 				}
 			}
-			return std::move(res);
+			return res;
 		}
 
 		std::vector<std::unique_ptr<std::string>> splitRequest(const std::string& str) noexcept{
@@ -375,18 +375,22 @@ namespace Cappuccino {
 
   	operator string() const{
       		std::string res = utils::stripNl(*protocol_)
-			  + " "	+ utils::stripNl(std::to_string(status_))
-			  + " " + utils::stripNl(*message_) + "\n";
-
+			 +" "+ std::to_string(status_)
+			 +" "+ *message_ +"\n";
+      		/*std::string res = "HTTP/1.1 OK 200\n";//utils::stripNl(*protocol_);
+      		std::string res = utils::stripNl(*protocol_)
+			 +" "+ utils::stripNl(std::to_string(status_))
+			 +" "+ utils::stripNl(*message_) + "\n";
+		*/
 			for(auto it = headerset.begin(); it != headerset.end(); ++it) {
 				res += it->first + ": " + it->second +"\n";
 			}
 			res += "Content-Length: " + std::to_string((*body_).size()+1)+"\n";
 			res += "Date: " + utils::current()+"\n";
-			res += "Server: Cappuccino\n";
+			res += "Server: Cappuccino";
 
-			res += "\n";
-			res += *body_ +"\n\n";
+			res += "\n\n";
+			res += *body_ +"\n";
 			return res;
       	}
     };
@@ -448,6 +452,9 @@ namespace Cappuccino {
 				memset(&buf, 0, sizeof(buf));
 			}
 		}while(read(sessionfd, buf+strlen(buf), sizeof(buf) - strlen(buf)) > 0);
+		Log::debug("==========\n");
+		Log::debug(std::string(buf));
+		Log::debug("==========\n");
 		return createResponse(buf);
 	}
 
@@ -495,7 +502,6 @@ namespace Cappuccino {
 		context.static_root = make_shared<string>(move(s));
 	}
 
-	std::mutex mtx;
 
 	void run() {
 		init_socket();
@@ -506,7 +512,6 @@ namespace Cappuccino {
 		struct sockaddr_in client;
         int    fd;
         struct timeval tv;
-		std::vector<std::thread> threads;
 
 	    for(int i = 0;i < FD_SETSIZE; i++){
 	        cd[i] = 0;
@@ -550,13 +555,12 @@ namespace Cappuccino {
 	                        FD_CLR(fd, &context.mask1fds);
 	                        cd[fd] = 0;
 	                    } else {
-							std::async(std::launch::async, [&cd,&fd] {
-								mtx.lock();
-								string response = receiveProcess(fd);
-								write(fd, response.c_str(), response.size());
+					string response = receiveProcess(fd);
+					Log::debug("--------\n");
+					Log::debug(response);
+					Log::debug("--------\n");
+					write(fd, response.c_str(), response.size());
 		                        cd[fd] = 1;
-								mtx.unlock();
-							});
 	                    }
 	                }
 	            }
