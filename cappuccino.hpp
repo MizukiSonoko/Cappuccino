@@ -334,6 +334,7 @@ namespace Cappuccino {
 
 				// 基本的にはOKでしょ
 				status_  = 200;
+				body_ = std::make_shared<string>("");
 				message_ = std::make_shared<string>("OK");
 			}else{
 				throw std::runtime_error("Request expired!\n");
@@ -517,8 +518,6 @@ namespace Cappuccino {
 	        cd[i] = 0;
 	    }
 
-
-
 	    while(1) {
 
 	        tv.tv_sec = 0;
@@ -556,6 +555,7 @@ namespace Cappuccino {
 	                        cd[fd] = 0;
 	                    } else {
 					string response = receiveProcess(fd);
+					std::cout <<"[debug] res:"<< response << std::endl;
 					Log::debug("--------\n");
 					Log::debug(response);
 					Log::debug("--------\n");
