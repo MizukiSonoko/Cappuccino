@@ -8,14 +8,8 @@ using Request = Cappuccino::Request;
 
 
 int main(int argc, char *argv[]){
+	Cappuccino::Cappuccino(argc, argv);
 
-#ifdef TEST
-	Cocoa::testOpenFile();
-	Cocoa::testOpenInvalidFile();
-#else
-
-	Cappuccino::Cappuccino(argc, argv);	
-	
 	Cappuccino::templates("html");
 	Cappuccino::publics("public");
 
@@ -36,6 +30,5 @@ int main(int argc, char *argv[]){
 
 	Cappuccino::run();
 
-#endif
 	return 0;
 }
