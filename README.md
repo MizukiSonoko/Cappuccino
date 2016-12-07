@@ -6,11 +6,9 @@
 
 Tiny HTTP server library.
 
-[Demo web page](http://cappuccino.mizuki.io/)
-
 # version
 ```
-0.1.0
+0.5.1
 ```
 
 # Micro sample
@@ -33,7 +31,7 @@ $ ./chino
 - gcc   version 5.0~
 
 
-### Dependics 
+### Dependics
 - [Json](https://github.com/nlohmann/json)
 
 # Usage
@@ -41,37 +39,38 @@ $ ./chino
 #### 1. include "cappuccino.hpp"
 #### 2. write code
 ```cpp
-#include "cappuccino.hpp"
+#include "../cappuccino.hpp"
+#include <json.hpp>
 
-int main(int argc, char *argv[]) {
-	// initialize
+using json = nlohmann::json;
+using Response = Cappuccino::Response;
+using Request = Cappuccino::Request;
+
+int main(int argc, char *argv[]){
 	Cappuccino::Cappuccino(argc, argv);
 
-	// set document_root
 	Cappuccino::templates("html");
 	Cappuccino::publics("public");
-	
-	// add function
+
 	Cappuccino::route("/",[](std::shared_ptr<Request> request) -> Response{
 		auto res =  Response(request);
 		res.file("index.html");
 		return res;
 	});
-	
-	// runnning
+
 	Cappuccino::run();
-	
+
 	return 0;
 }
 ```
 
 ### 3. compile
 ```shell
-clang++ -std=c++0x -Wall app.cpp -o app
+clang++ -std=c++14 -Wall app.cpp -o app
 ```
 ### 4. runnig
 ```shell
-$ ./app
+$ ./chino
 ```
 
 # Directory
@@ -86,4 +85,3 @@ $ ./app
 
 # LICENCE
 MIT
-
