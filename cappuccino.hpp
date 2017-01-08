@@ -113,6 +113,12 @@ namespace Cappuccino {
 			}
 		}
 
+		static void error(const string& msg){
+			if(LogLevel >= 3){
+				std::cout <<utils::current()<<"[error] "<< msg << std::endl;
+			}
+		}
+
 	};
 
 	namespace signal_utils{
@@ -215,11 +221,15 @@ namespace Cappuccino {
 		}
 
 		if (bind(context.sockfd, (struct sockaddr *) &server, sizeof(server)) < 0) {
-			exit(EXIT_FAILURE);
+				if(errno == EADDRINUSE) {
+					Log::LogLevel = 3;
+					Log::error("port '" + std::to_string(context.port) + "' is already in use.");
+				}
+	  		exit(EXIT_FAILURE);
 		}
 
 		if(listen(context.sockfd,  MAX_LISTEN) < 0) {
-			exit(EXIT_FAILURE);
+	    	exit(EXIT_FAILURE);
 		}
 
     FD_ZERO(&context.mask1fds);
