@@ -30,6 +30,8 @@
 #include <mutex>
 #include <ctime>
 
+#include "../../util/use_optional.hpp"
+
 namespace Cappuccino {
 
 	const int BUF_SIZE   = 4096;
@@ -337,23 +339,23 @@ namespace Cappuccino {
 			paramset[key] = move(value);
 		}
 
-		const string header(const string& key){
+		const optional<string> header(const string& key){
 			if(headerset.find(key) == headerset.end())
-				return "INVALID";
-			return headerset[key];
+				return nullopt;
+			return make_optional(headerset[key]);
 		}
 
-		const string params(const string& key){
+		const optional<string> params(const string& key){
 			if(paramset.find(key) == paramset.end())
-				return "INVALID";
-			return paramset[key];
+				return nullopt;
+			return make_optional(paramset[key]);
 		}
 
-		const nlohmann::json json(){
+		const optional<nlohmann::json> json(){
 			try{
-				return nlohmann::json::parse(*body);
+				return make_optional(nlohmann::json::parse(*body));
 			} catch(std::invalid_argument e){}
-			return  nlohmann::json({});
+			return nullopt;
 		}
 
 		bool isCorrect() {
