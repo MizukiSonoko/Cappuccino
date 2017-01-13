@@ -4,6 +4,7 @@
 #include <string>
 #include <string.h>
 #include <csignal>
+
 #include <netinet/in.h>
 #include <sys/socket.h>
 #include <sys/types.h>
@@ -11,6 +12,7 @@
 #include <dirent.h>
 #include <fcntl.h>
 #include <errno.h>
+
 #include <functional>
 #include <unordered_map>
 #include <algorithm>
@@ -21,22 +23,84 @@
 #include <vector>
 #include <fstream>
 #include <future>
+#include <set>
 
 #include <json.hpp>
 
 #include <mutex>
 #include <ctime>
 
-#define BUF_SIZE 4096
-#define MAX_LISTEN 128
+#ifdef __has_include
+#  if __has_include(<optional>)
+#    include <optional>
+#    define have_optional 1
+#  elif __has_include(<experimental/optional>)
+#    include <experimental/optional>
+#    define have_optional 1
+#    define experimental_optional
+#  else
+#    define have_optional 0
+#    error "This file requires to use std::experimental::optional (or std::optional). Please update GCC version."
+#  endif
+#endif
+
+#ifdef experimental_optional
+using std::experimental::optional;
+using std::experimental::make_optional;
+using std::experimental::nullopt;
+#else
+using std::optional
+using std::make_optional;
+using std:::nullopt;
+#endif
 
 namespace Cappuccino {
 
+	const int BUF_SIZE   = 4096;
+	const int MAX_LISTEN = 128;
+
 	class Request;
 	class Response;
+	using std::string;
+
+	enum class Method{
+		GET,
+		HEAD,
+		POST,
+		OPTIONS,
+		PUT,
+		DELETE,
+		TRACE,
+
+		INVALID
+	};
+
+	Method method_of(const string& m){
+		if(m == "GET"){
+			return Method::GET;
+		}else if(m == "HEAD"){
+			return Method::HEAD;
+		}else if(m == "POST"){
+			return Method::POST;
+		}else if(m == "OPTIONS"){
+			return Method::OPTIONS;
+		}else if(m == "PUT"){
+			return Method::PUT;
+		}else if(m == "DELETE"){
+			return Method::DELETE;
+		}else if(m == "TRACE"){
+			return Method::DELETE;
+		}
+		return Method::INVALID;
+	}
+
+
+
+	namespace utils{
+		const std::string current();
+	};
 
 	struct {
-
 		time_t time;
    	struct tm *t_st;
 
@@ -48,33 +112,37 @@ namespace Cappuccino {
 		std::shared_ptr<std::string> view_root;
 		std::shared_ptr<std::string> static_root;
 
-		std::unordered_map<std::string,
-			std::function<Response(std::shared_ptr<Request>)>
+		std::unordered_map<
+			string,
+			std::pair<
+				std::function<Response(std::shared_ptr<Request>)>,
+				std::set<Method>
+			>
 		> routes;
 
 	} context;
 
-	namespace Log{
-
-		std::string current(){
-			char timestr[256];
-   			time(&context.time);
-			strftime(timestr, 255, "%a, %d %b %Y %H:%M:%S %Z", localtime(&context.time));
-			return timestr;
-		}
+	namespace Log {
 
 		static int LogLevel = 0;
-		static void debug(std::string msg){
+		static void debug(const string& msg){
 			if(LogLevel >= 1){
-				std::cout <<current()<<"[debug] "<< msg << std::endl;
+				std::cout <<utils::current()<<"[debug] "<< msg << std::endl;
 			}
 		}
 
-		static void info(std::string msg){
+		static void info(const string& msg){
 			if(LogLevel >= 2){
-				std::cout <<current()<<"[info] "<< msg << std::endl;
+				std::cout <<utils::current()<<"[info] "<< msg << std::endl;
 			}
 		}
+
+		static void error(const string& msg){
+			if(LogLevel >= 3){
+				std::cout <<utils::current()<<"[error] "<< msg << std::endl;
+			}
+		}
+
 	};
 
 	namespace signal_utils{
@@ -102,33 +170,32 @@ namespace Cappuccino {
 
 	namespace utils{
 
-		// ア！同じ処理の関数が2つもあるぞ！！！
-		const std::string current() {
+		const std::string current(){
 			char timestr[256];
    			time(&context.time);
 			strftime(timestr, 255, "%a, %d %b %Y %H:%M:%S %Z", localtime(&context.time));
 			return timestr;
 		}
 
-		std::string&& stripNl(const std::string &msg){
-			std::string res;
+		const string stripNl(const std::string& msg) {
+			string res = "";
 			for (const auto c : msg) {
 				if (c != '\n' && c != '\r') {
 					res += c;
 				}
 			}
-			return std::move(res);
+			return res;
 		}
 
 		std::vector<std::unique_ptr<std::string>> splitRequest(const std::string& str) noexcept{
 			std::vector<std::unique_ptr<std::string>> result;
-		    std::string::size_type pos = str.find("\n", 0);
+	    std::string::size_type pos = str.find("\n", 0);
 			if(pos != std::string::npos){
 				result.push_back(std::make_unique<std::string>(
 					str.substr( 0, pos)
 				));
 				auto sub_str_start_pos = pos;
-			    std::string::size_type sec_pos = str.find("{");
+		    std::string::size_type sec_pos = str.find("{");
 				if( sec_pos != std::string::npos){
 					result.push_back(
 						std::make_unique<std::string>(
@@ -142,7 +209,7 @@ namespace Cappuccino {
 			return result;
 		}
 
-		std::vector<std::unique_ptr<std::string>> split(const std::string& str, std::string delim) noexcept{
+		std::vector<std::unique_ptr<std::string>> split(const string& str, const string& delim) noexcept{
 			std::vector<std::unique_ptr<std::string>> result;
 		    std::string::size_type pos = 0;
 		    while(pos != std::string::npos) {
@@ -160,7 +227,7 @@ namespace Cappuccino {
 	};
 
 	void init_socket(){
-	    struct sockaddr_in server;
+    struct sockaddr_in server;
 		if((context.sockfd = socket(AF_INET, SOCK_STREAM, 0)) < 0){
 			exit(EXIT_FAILURE);
 		}
@@ -173,30 +240,30 @@ namespace Cappuccino {
 		setsockopt(context.sockfd, SOL_SOCKET, SO_REUSEADDR, (char *)&opt, sizeof(char));
 
 		int temp = 1;
-  		if(setsockopt(context.sockfd, SOL_SOCKET, SO_REUSEADDR,
-	        &temp, sizeof(int))){
+		if(setsockopt(
+				context.sockfd, SOL_SOCKET, SO_REUSEADDR, &temp, sizeof(int))){
 		}
 
 		if (bind(context.sockfd, (struct sockaddr *) &server, sizeof(server)) < 0) {
-			exit(EXIT_FAILURE);
+				if(errno == EADDRINUSE) {
+					Log::LogLevel = 3;
+					Log::error("port '" + std::to_string(context.port) + "' is already in use.");
+				}
+	  		exit(EXIT_FAILURE);
 		}
 
 		if(listen(context.sockfd,  MAX_LISTEN) < 0) {
-			exit(EXIT_FAILURE);
+	    	exit(EXIT_FAILURE);
 		}
 
-	    FD_ZERO(&context.mask1fds);
-	    FD_SET(context.sockfd, &context.mask1fds);
+    FD_ZERO(&context.mask1fds);
+    FD_SET(context.sockfd, &context.mask1fds);
 	}
 
-	using namespace std;
-
-
-	pair<string,string> openFile(string aFilename){
-		auto filename = aFilename;
-		std::ifstream ifs( filename, std::ios::in | std::ios::binary);
+	std::pair<string,string> openFile(const string& aFilename){
+		std::ifstream ifs( aFilename, std::ios::in | std::ios::binary);
 		if(ifs.fail()){
-			throw std::runtime_error("No such file or directory \""+ filename +"\"\n");
+			throw std::runtime_error("No such file or directory \""+ aFilename +"\"\n");
 		}
 		ifs.seekg( 0, std::ios::end);
 		auto pos = ifs.tellg();
@@ -207,13 +274,17 @@ namespace Cappuccino {
 		string response(buf.cbegin(), buf.cend());
 
 		if( response[0] == '\xFF' && response[1] == '\xD8'){
-			return make_pair(response, "image/jpg");
+			return std::make_pair(response, "image/jpg");
 		}else if( response[0] == '\x89' && response[1] == 'P' && response[2] == 'N' && response[3] == 'G'){
-			return make_pair(response, "image/png");
-		}else if( response[0] == 'G' && response[1] == 'I' && response[2] == 'F' && response[3] == '8' && (response[4] == '7' || response[4] == '9') && response[2] == 'a'){
-			return make_pair(response, "image/gif");
+			return std::make_pair(response, "image/png");
+		}else if(
+			response[0] == 'G' && response[1] == 'I' && response[2] == 'F' && response[3] == '8'
+			&&
+			(response[4] == '7' || response[4] == '9')
+		){
+			return std::make_pair(response, "image/gif");
 		}else{
-			return make_pair(response, "text/html");
+			return std::make_pair(response, "text/html");
 		}
 	}
 
@@ -238,7 +309,7 @@ namespace Cappuccino {
 		std::unordered_map<string, string> headerset;
 		std::unordered_map<string, string> paramset;
 		bool correctRequest;
-	  public:
+	 public:
 		Request(
 			std::unique_ptr<string> aMethod,
 			std::unique_ptr<string> aPath,
@@ -246,15 +317,27 @@ namespace Cappuccino {
 			std::unique_ptr<string> abody
 		):
 			method(move(aMethod)),
-			path(move(aPath)),
 			protocol(move(aProtocol)),
 			body(move(abody))
 		{
+			std::vector<std::unique_ptr<string>> path_param = utils::split( *aPath, "?");
+			path = std::move(path_param.at(0));
+			if( path_param.size() == 2){
+				auto params = utils::split( *path_param[1],"&");
+				for(auto&& param : params){
+					auto param_key_val = utils::split( *param, "=");
+					if(param_key_val.size() == 2) {
+						paramset.insert(
+							make_pair( *param_key_val[0], *param_key_val[1])
+						);
+					}
+				}
+			}
 			correctRequest = validateHttpVersion(*protocol);
 		}
 
 		const std::shared_ptr<string> method;
-		const std::shared_ptr<string> path;
+		std::shared_ptr<string> path;
 		const std::shared_ptr<string> protocol;
 		const std::shared_ptr<string> body;
 
@@ -270,70 +353,78 @@ namespace Cappuccino {
 			return true;
 		}
 
-		void addHeader(const string& key,string value){
+		void addHeader(const string& key,string&& value){
 			headerset[key] = move(value);
 		}
 
-		void addParams(const string& key,string value){
+		void addParams(const string& key,string&& value){
 			paramset[key] = move(value);
 		}
 
-		const string header(const string& key){
+		const optional<string> header(const string& key){
 			if(headerset.find(key) == headerset.end())
-				return "INVALID";
-			return headerset[key];
+				return nullopt;
+			return make_optional(headerset[key]);
 		}
 
-		const string params(const string& key){
+		const optional<string> params(const string& key){
 			if(paramset.find(key) == paramset.end())
-				return "INVALID";
-			return paramset[key];
+				return nullopt;
+			return make_optional(paramset[key]);
 		}
 
-		const nlohmann::json json(){
+		const optional<nlohmann::json> json(){
 			try{
-				return nlohmann::json::parse(*body);
-			}catch(std::invalid_argument e){}
-			return  nlohmann::json({});
+				return make_optional(nlohmann::json::parse(*body));
+			} catch(std::invalid_argument e){}
+			return nullopt;
 		}
 
-		bool isCorrect(){
+		bool isCorrect() {
 			return correctRequest;
 		}
 	};
 
-    class Response{
+  class Response{
 
-		unordered_map<string, string> headerset;
+			std::unordered_map<string, string> headerset;
 
-		int status_;
-		shared_ptr<string> message_;
-		shared_ptr<string> path_;
-		shared_ptr<string> protocol_;
-		shared_ptr<string> method_;
-		shared_ptr<string> body_;
-      public:
+			int status_;
+			std::shared_ptr<string> message_;
+			std::shared_ptr<string> path_;
+			std::shared_ptr<string> protocol_;
+			std::shared_ptr<string> method_;
+			std::shared_ptr<string> body_;
+    public:
 
-		Response(weak_ptr<Request> req){
-			auto r = req.lock();
-			if(r){
-				method_ = r->method;
-				path_ = r->path;
-				protocol_ = r->protocol;
+			Response(std::weak_ptr<Request> req){
+				auto r = req.lock();
+				if(r){
+					method_ = r->method;
+					path_ = r->path;
+					protocol_ = r->protocol;
 
-				// 基本的にはOKでしょ
-				status_  = 200;
-				message_ = std::make_shared<string>("OK");
-			}else{
-				throw std::runtime_error("Request expired!\n");
+					status_  = 200;
+					body_ = std::make_shared<string>("");
+					message_ = std::make_shared<string>("OK");
+				}else{
+					throw std::runtime_error("Request expired!\n");
+				}
 			}
-		}
 
-		Response(int st,string msg, string pro, string bod):
-			status_(st),
+		Response(
+			int status,
+			const string& msg,
+			const string& protocol,
+			const string& method,
+			const string& body,
+			const string& path):
+			status_(status),
 			message_(std::make_shared<string>(msg)),
-			protocol_(std::make_shared<string>(pro)),
-			body_(std::make_shared<string>(bod))
+			path_(std::make_shared<string>(path)),
+			protocol_(std::make_shared<string>(protocol)),
+			method_(std::make_shared<string>(method)),
+			body_(std::make_shared<string>(body))
 		{}
 
 		void message(string msg){
@@ -344,7 +435,7 @@ namespace Cappuccino {
 			status_ = st;
 		}
 
-		void header(const string& key,string val){
+		void header(const string& key,const string& val){
 			if(headerset.find(key)!= headerset.end()){
 				Log::debug(key+" is already setted.");
 			}
@@ -356,46 +447,48 @@ namespace Cappuccino {
 			headerset["Content-Type"] = "application/json";
 		}
 
-		void file(const string&  filename){
+		void file(const string& filename){
 			auto file = openFile(*context.view_root + "/" + filename);
 			body_ = std::make_shared<string>(file.first);
 			headerset["Content-Type"] = move(file.second);
 		}
 
-      	operator string() const{
-      		std::string res = utils::stripNl(*protocol_)
-			  + " "	+ utils::stripNl(std::to_string(status_))
-			  + " " + utils::stripNl(*message_) + "\n";
+  	operator string() const{
+  		std::string res = utils::stripNl(*protocol_)
+			 +" "+ std::to_string(status_)
+			 +" "+ *message_ +"\n";
 
-			for(auto it = headerset.begin(); it != headerset.end(); ++it) {
-				res += it->first + ": " + it->second +"\n";
+			for(const auto& it: headerset) {
+				res += it.first + ": " + it.second +"\n";
 			}
 			res += "Content-Length: " + std::to_string((*body_).size()+1)+"\n";
 			res += "Date: " + utils::current()+"\n";
-			res += "Server: Cappuccino\n";
+			res += "Server: Cappuccino";
 
-			res += "\n";
-			res += *body_ +"\n\n";
+			res += "\n\n";
+			if(*method_ != "HEAD"){
+				res += *body_ +"\n";
+			}
 			return res;
-      	}
-    };
+  	}
+  };
 
 	string createResponse(char* req) noexcept{
 		auto lines = utils::splitRequest(string(req));
 		if(lines.empty()){
 			Log::debug("REQUEST is empty ");
-			return Response(400, "Bad Request", "HTTP/1.1", "NN");
+			return Response(400, "Bad Request", "HTTP/1.1", "", "<h1>Bad Request</h1>", "");
 		}
 		auto tops = utils::split( *lines[0], " ");
 		if(tops.size() < 3){
 			Log::debug("REQUEST header is invalied! ["+*tops[0]+"] ");
-			return Response(401, "Bad Request", "HTTP/1.1",  "NN");
+			return Response(401, "Bad Request", "HTTP/1.1", "", "<h1>Bad Request</h1>", "");
 		}
 		Log::debug(*tops[0] +" "+ *tops[1] +" "+ *tops[2]);
 
-		shared_ptr<Request> request;
+		std::shared_ptr<Request> request;
 		if (lines.size() == 3){
-			request = shared_ptr<Request>(
+			request = std::shared_ptr<Request>(
 				new Request(
 					std::move(tops[0]),
 					std::move(tops[1]),
@@ -403,7 +496,7 @@ namespace Cappuccino {
 					std::move(lines[2])
 			));
 		}else{
-			request = shared_ptr<Request>(
+			request = std::shared_ptr<Request>(
 				new Request(
 					std::move(tops[0]),
 					std::move(tops[1]),
@@ -412,15 +505,23 @@ namespace Cappuccino {
 			));
 		}
 		if(!request->isCorrect()){
-			return Response( 401,"Bad Request", *request->protocol, "AA");
+			return Response( 401,"Bad Request", *request->protocol, *request->method, "<h1>Bad Request</h1>", *request->path);
 		}
 
 		if(context.routes.find(*request->path) != context.routes.end()){
-			auto f = context.routes[*request->path];
-			return f(move(request));
+			auto f = context.routes[*request->path].first;
+			if(
+				context.routes[*request->path].second.find(method_of(*request->method)) !=
+				context.routes[*request->path].second.end()
+				||
+				method_of(*request->method) == Method::HEAD
+			){
+				return f(move(request));
+			}else{
+				return Response( 405, "Method Not Allowed", *request->protocol, *request->method, "<h1>Method Not Allowed!</h1>", *request->path);
+			}
 		}
-
-		return Response( 404, "Not found", *request->protocol, "<h1>Not found!! </h1>");
+		return Response( 404, "Not found", *request->protocol, *request->method, "<h1>Not found!! </h1>", *request->path);
 	}
 
 	string receiveProcess(int sessionfd){
@@ -437,14 +538,17 @@ namespace Cappuccino {
 				memset(&buf, 0, sizeof(buf));
 			}
 		}while(read(sessionfd, buf+strlen(buf), sizeof(buf) - strlen(buf)) > 0);
+		Log::debug("==========\n");
+		Log::debug(std::string(buf));
+		Log::debug("==========\n");
 		return createResponse(buf);
 	}
 
-
-	void load(string directory, string filename) noexcept{
+	void load(const string& aDirectory, const string& filename) noexcept{
+		string directory = aDirectory;
 		if(filename == "." || filename == "..") return;
 		if(filename != "")
-			directory += "/" + move(filename);
+			directory += "/" + filename;
 		DIR* dir = opendir(directory.c_str());
 		if(dir != NULL){
 			struct dirent* dent;
@@ -457,14 +561,18 @@ namespace Cappuccino {
 		    	closedir(dir);
 			}
 		}else{
-			context.routes.insert( make_pair(
+			context.routes.insert( std::make_pair(
 				"/" + directory,
-				[directory,filename](std::shared_ptr<Request> request) -> Cappuccino::Response{
-					auto file = openFile(directory);
-					auto res = Response(200,"OK","HTTP/1.1",file.first);
-					res.header("Content-Type", file.second);
-					return res;
-				}
+				std::make_pair<
+					std::function<Response(std::shared_ptr<Request>)>,
+					std::set<Method>
+				>( [directory,filename](std::shared_ptr<Request> request) -> Cappuccino::Response{
+						auto file = openFile(directory);
+						auto res = Response(200,"OK","HTTP/1.1","GET", file.first, "/" + directory);
+						res.header("Content-Type", file.second);
+						return res;
+					}, { Method::GET }
+				)
 			));
 		}
 	}
@@ -473,23 +581,29 @@ namespace Cappuccino {
 		load(*context.static_root,"");
 	}
 
-	void route(string path,std::function<Response(std::shared_ptr<Request>)> F){
-		context.routes.insert( make_pair( move(path), move(F) ));
+	template<Method m>
+	void route(const string& path,std::function<Response(std::shared_ptr<Request>)> F){
+		if( context.routes.find(path) != context.routes.end()){
+			auto functions = context.routes[path];
+			functions.second.insert(m);
+		}else{
+			context.routes.insert( std::make_pair( move(path), std::make_pair<
+				std::function<Response(std::shared_ptr<Request>)>,
+				std::set<Method>
+			>( move(F), {m})));
+		}
 	}
 
-	void templates(string r){
-		context.view_root =  make_shared<string>(move(r));
+	void templates(const string& r){
+		context.view_root =  std::make_shared<string>(move(r));
 	}
 
-	void publics(string s){
-		context.static_root = make_shared<string>(move(s));
+	void publics(const string& s){
+		context.static_root = std::make_shared<string>(move(s));
 	}
 
 
-	std::mutex mtx;
-
-	void run(){
-
+	void run() {
 		init_socket();
 		signal_utils::init_signal();
 		loadStaticFiles();
@@ -498,24 +612,20 @@ namespace Cappuccino {
 		struct sockaddr_in client;
         int    fd;
         struct timeval tv;
-		std::vector<std::thread> threads;
 
 	    for(int i = 0;i < FD_SETSIZE; i++){
 	        cd[i] = 0;
 	    }
 
-
-
 	    while(1) {
 
 	        tv.tv_sec = 0;
 	        tv.tv_usec = 0;
-			// mask2fds <- mask1fds
+					// mask2fds <- mask1fds
 	        memcpy(&context.mask2fds, &context.mask1fds, sizeof(context.mask1fds));
 
-			// mask2fdsを監視
+					// mask2fdsを監視
 	        int select_result = select(FD_SETSIZE, &context.mask2fds, (fd_set *)0, (fd_set *)0, &tv);
-			//
 	        if(select_result < 1) {
 	            for(fd = 0; fd < FD_SETSIZE; fd++) {
 	                if(cd[fd] == 1) {
@@ -528,57 +638,36 @@ namespace Cappuccino {
 	        }
 
 			for(fd = 0; fd < FD_SETSIZE; fd++){
-				// i番目のfdに読み込みデータがある
-	            if(FD_ISSET(fd,&context.mask2fds)) {
-	                if(fd == context.sockfd) {
-	                	memset( &client, 0, sizeof(client));
-						int len = sizeof(client);
-						int clientfd = accept(context.sockfd,
-							(struct sockaddr *)&client,(socklen_t *) &len);
-						FD_SET(clientfd, &context.mask1fds);
-	                }else {
-	                    if(cd[fd] == 1) {
-	                        close(fd);
-	                        FD_CLR(fd, &context.mask1fds);
-	                        cd[fd] = 0;
-	                    } else {
-							std::async(std::launch::async, [&cd,&fd] {
-								mtx.lock();
-								string response = receiveProcess(fd);
-								write(fd, response.c_str(), response.size());
-		                        cd[fd] = 1;
-								mtx.unlock();
-							});
-	                    }
-	                }
-	            }
+						// i番目のfdに読み込みデータがある
+            if(FD_ISSET(fd,&context.mask2fds)) {
+              if(fd == context.sockfd) {
+              	memset( &client, 0, sizeof(client));
+								int len = sizeof(client);
+								int clientfd = accept(context.sockfd,
+									(struct sockaddr *)&client,(socklen_t *) &len);
+								FD_SET(clientfd, &context.mask1fds);
+              }else {
+                if(cd[fd] == 1) {
+                    close(fd);
+                    FD_CLR(fd, &context.mask1fds);
+                    cd[fd] = 0;
+                } else {
+									string response = receiveProcess(fd);
+									Log::debug("--------\n");
+									Log::debug(response);
+									Log::debug("--------\n");
+									write(fd, response.c_str(), response.size());
+                  cd[fd] = 1;
+                }
+            	}
+            }
 	        }
 	    }
 	}
 
 	void Cappuccino(int argc, char *argv[]) {
 		option(argc, argv);
-		context.view_root = make_shared<string>("html");
-		context.static_root = make_shared<string>("public");
-	}
-};
-
-namespace Cocoa{
-	using namespace Cappuccino;
-	using namespace std;
-
-	// Unit Test
-	void testOpenFile(){
-		auto res = openFile("html/index.html");
-		auto lines = utils::split(res.first, "\n");
-		assert(!lines.empty());
-	}
-
-	void testOpenInvalidFile(){
-		try{
-			auto res = openFile("html/index");
-		}catch(std::runtime_error e){
-			cout<< e.what() << endl;
-		}
+		context.view_root = std::make_shared<string>("html");
+		context.static_root = std::make_shared<string>("public");
 	}
 };

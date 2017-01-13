@@ -19,8 +19,9 @@ matrix:
             - clang-3.8
           sources: *sources
 install:
+  - rm -rf lib/json
   - git clone https://github.com/nlohmann/json.git lib/json
 script:
   - clang++ --version
   - g++ --version
-  - cd samples; make test
+  - cd samples; make
