@@ -524,14 +524,13 @@ namespace Cappuccino {
 		context.static_root = std::make_shared<string>(move(s));
 	}
 
-	class server {
+	class AsioServer {
 	  asio::io_service io_service;
 	  asio::ip::tcp::acceptor acceptor;
 	  asio::ip::tcp::socket socket;
 		asio::signal_set signals;
-
-	 public:
-		server():
+	public:
+		AsioServer():
 			io_service(),
 	    acceptor(io_service),
 	    socket(io_service),
@@ -571,8 +570,8 @@ namespace Cappuccino {
     				[this, &buf](asio::error_code ec, std::size_t len){
 	        	if(!ec){
 							std::string request = buf_to_string( buf.data(), buf.data() + len);
-							std::cout <<"buffer:  "<< request << std::endl;
-							std::cout <<"bytes_transferred: "<<  len <<  std::endl;
+							Log::debug("buffer:  " + request);
+							Log::debug("bytes_transferred: "+ std::to_string(len));
 							asio::async_write(
 								socket,
 								asio::buffer(createResponse(request)),
@@ -610,7 +609,7 @@ namespace Cappuccino {
 
 	void run() {
 		loadStaticFiles();
-		server s;
+		AsioServer s;
 		s.run();
 	}
 
