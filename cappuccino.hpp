@@ -1,3 +1,5 @@
+#define ASIO_STANDALONE
+
 #include <cstdio>
 #include <cstdlib>
 #include <unistd.h>
@@ -26,6 +28,9 @@
 #include <set>
 
 #include <json.hpp>
+
+
+#include <asio.hpp>
 
 #include <mutex>
 #include <ctime>
@@ -70,8 +75,6 @@ namespace Cappuccino {
 		return Method::INVALID;
 	}
 
-
-
 	namespace utils{
 		const std::string current();
 	};
@@ -80,10 +83,10 @@ namespace Cappuccino {
 		time_t time;
    	struct tm *t_st;
 
+		string address = "localhost";
 		int port = 1204;
 		int sockfd = 0;
 		int sessionfd = 0;
-	    fd_set mask1fds, mask2fds;
 
 		std::shared_ptr<std::string> view_root;
 		std::shared_ptr<std::string> static_root;
@@ -196,36 +199,6 @@ namespace Cappuccino {
 		}
 	};
 
-	void init_socket(){
-    struct sockaddr_in server;
-		if((context.sockfd = socket(AF_INET, SOCK_STREAM, 0)) < 0){
-			exit(EXIT_FAILURE);
-		}
-		memset( &server, 0, sizeof(server));
-		server.sin_family = AF_INET;
-		server.sin_addr.s_addr = INADDR_ANY;
-		server.sin_port = htons(context.port);
-
-		char opt = 1;
-		setsockopt(context.sockfd, SOL_SOCKET, SO_REUSEADDR, (char *)&opt, sizeof(char));
-
-		int temp = 1;
-		if(setsockopt(
-				context.sockfd, SOL_SOCKET, SO_REUSEADDR, &temp, sizeof(int))){
-		}
-
-		if (bind(context.sockfd, (struct sockaddr *) &server, sizeof(server)) < 0) {
-			exit(EXIT_FAILURE);
-		}
-
-		if(listen(context.sockfd,  MAX_LISTEN) < 0) {
-			exit(EXIT_FAILURE);
-		}
-
-    FD_ZERO(&context.mask1fds);
-    FD_SET(context.sockfd, &context.mask1fds);
-	}
-
 	std::pair<string,string> openFile(const string& aFilename){
 		std::ifstream ifs( aFilename, std::ios::in | std::ios::binary);
 		if(ifs.fail()){
@@ -263,6 +236,9 @@ namespace Cappuccino {
 				break;
 			case 'p':
 				context.port = atoi(optarg);
+				break;
+			case 'a':
+				context.address = optarg;
 				break;
 			case 'v':
 				Log::debug("version 0.1.0");
@@ -439,8 +415,8 @@ namespace Cappuccino {
   	}
   };
 
-	string createResponse(char* req) noexcept{
-		auto lines = utils::splitRequest(string(req));
+	string createResponse(string req) noexcept{
+		auto lines = utils::splitRequest(req);
 		if(lines.empty()){
 			Log::debug("REQUEST is empty ");
 			return Response(400, "Bad Request", "HTTP/1.1", "", "<h1>Bad Request</h1>", "");
@@ -488,26 +464,6 @@ namespace Cappuccino {
 			}
 		}
 		return Response( 404, "Not found", *request->protocol, *request->method, "<h1>Not found!! </h1>", *request->path);
-	}
-
-	string receiveProcess(int sessionfd){
-		char buf[BUF_SIZE] = {};
-
-		if (recv(sessionfd, buf, sizeof(buf), 0) < 0) {
-			exit(EXIT_FAILURE);
-		}
-		do{
-			if(strstr(buf, "\r\n")){
-				break;
-			}
-			if (strlen(buf) >= sizeof(buf)) {
-				memset(&buf, 0, sizeof(buf));
-			}
-		}while(read(sessionfd, buf+strlen(buf), sizeof(buf) - strlen(buf)) > 0);
-		Log::debug("==========\n");
-		Log::debug(std::string(buf));
-		Log::debug("==========\n");
-		return createResponse(buf);
 	}
 
 	void load(const string& aDirectory, const string& filename) noexcept{
@@ -568,67 +524,94 @@ namespace Cappuccino {
 		context.static_root = std::make_shared<string>(move(s));
 	}
 
+	class server {
+	  asio::io_service io_service;
+	  asio::ip::tcp::acceptor acceptor;
+	  asio::ip::tcp::socket socket;
+		asio::signal_set signals;
+
+	 public:
+		server():
+			io_service(),
+	    acceptor(io_service),
+	    socket(io_service),
+			signals(io_service)
+		{
+			signals.add(SIGINT);
+ 		  signals.add(SIGTERM);
+
+			do_await_stop();
+
+		 	asio::ip::tcp::resolver resolver(io_service);
+			asio::ip::tcp::endpoint endpoint = *resolver.resolve({context.address, std::to_string(context.port)});
+			acceptor.open(endpoint.protocol());
+			acceptor.set_option(asio::ip::tcp::acceptor::reuse_address(true));
+			acceptor.bind(endpoint);
+ 			acceptor.listen();
+			do_accept();
+		}
+
+		std::string buf_to_string(auto begin,auto end){
+			std::string result = "";
+			while(begin != end){
+				result += *begin++;
+			}
+			return result;
+		}
+
+		void do_accept(){
+		  acceptor.async_accept(socket,
+	      [this](asio::error_code ec){
+        if (!acceptor.is_open()){
+          return;
+        }
+				std::array<char, 8192> buf;
+        if (!ec){
+					socket.async_read_some(asio::buffer(buf),
+    				[this, &buf](asio::error_code ec, std::size_t len){
+	        	if(!ec){
+							std::string request = buf_to_string( buf.data(), buf.data() + len);
+							std::cout <<"buffer:  "<< request << std::endl;
+							std::cout <<"bytes_transferred: "<<  len <<  std::endl;
+							asio::async_write(
+								socket,
+								asio::buffer(createResponse(request)),
+	      				[this](asio::error_code ec, std::size_t){
+					        if (!ec){
+					          asio::error_code ignored_ec;
+					          socket.shutdown(asio::ip::tcp::socket::shutdown_both,ignored_ec);
+					        }
+					        if (ec != asio::error::operation_aborted){
+										socket.close();
+					        }
+					      });
+	  				}else if (ec != asio::error::operation_aborted){
+								socket.close();
+		        }
+    			});
+      	}
+      	do_accept();
+  		});
+		}
+
+		void do_await_stop(){
+			signals.async_wait(
+      	[this](asio::error_code ec, int signo){
+					acceptor.close();
+					socket.close();
+    	});
+		}
+
+		void run(){
+  		io_service.run();
+		}
+
+	};
 
 	void run() {
-		init_socket();
-		signal_utils::init_signal();
 		loadStaticFiles();
-
-	    int cd[FD_SETSIZE];
-		struct sockaddr_in client;
-        int    fd;
-        struct timeval tv;
-
-	    for(int i = 0;i < FD_SETSIZE; i++){
-	        cd[i] = 0;
-	    }
-
-	    while(1) {
-
-	        tv.tv_sec = 0;
-	        tv.tv_usec = 0;
-					// mask2fds <- mask1fds
-	        memcpy(&context.mask2fds, &context.mask1fds, sizeof(context.mask1fds));
-
-					// mask2fdsを監視
-	        int select_result = select(FD_SETSIZE, &context.mask2fds, (fd_set *)0, (fd_set *)0, &tv);
-	        if(select_result < 1) {
-	            for(fd = 0; fd < FD_SETSIZE; fd++) {
-	                if(cd[fd] == 1) {
-	                    close(fd);
-	                    FD_CLR(fd, &context.mask1fds);
-	                    cd[fd] = 0;
-	                }
-	            }
-	            continue;
-	        }
-
-			for(fd = 0; fd < FD_SETSIZE; fd++){
-						// i番目のfdに読み込みデータがある
-            if(FD_ISSET(fd,&context.mask2fds)) {
-              if(fd == context.sockfd) {
-              	memset( &client, 0, sizeof(client));
-								int len = sizeof(client);
-								int clientfd = accept(context.sockfd,
-									(struct sockaddr *)&client,(socklen_t *) &len);
-								FD_SET(clientfd, &context.mask1fds);
-              }else {
-                if(cd[fd] == 1) {
-                    close(fd);
-                    FD_CLR(fd, &context.mask1fds);
-                    cd[fd] = 0;
-                } else {
-									string response = receiveProcess(fd);
-									Log::debug("--------\n");
-									Log::debug(response);
-									Log::debug("--------\n");
-									write(fd, response.c_str(), response.size());
-                  cd[fd] = 1;
-                }
-            	}
-            }
-	        }
-	    }
+		server s;
+		s.run();
 	}
 
 	void Cappuccino(int argc, char *argv[]) {
