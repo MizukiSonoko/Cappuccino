@@ -82,8 +82,8 @@ namespace Cappuccino {
 	struct {
 		time_t time;
    	struct tm *t_st;
-
-		string address = "localhost";
+    
+		string address = "0.0.0.0";
 		int port = 1204;
 		int sockfd = 0;
 		int sessionfd = 0;
