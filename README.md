@@ -68,7 +68,7 @@ int main(int argc, char *argv[]){
 ```shell
 clang++ -std=c++14 -Wall app.cpp -o app
 ```
-### 4. runnig
+### 4. run it
 ```shell
 $ ./chino
 ```
