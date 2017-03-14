@@ -550,14 +550,6 @@ namespace Cappuccino {
 			do_accept();
 		}
 
-		std::string buf_to_string(auto begin,auto end){
-			std::string result = "";
-			while(begin != end){
-				result += *begin++;
-			}
-			return result;
-		}
-
 		void do_accept(){
 		  acceptor.async_accept(socket,
 	      [this](asio::error_code ec){
@@ -569,7 +561,7 @@ namespace Cappuccino {
 					socket.async_read_some(asio::buffer(buf),
     				[this, &buf](asio::error_code ec, std::size_t len){
 	        	if(!ec){
-							std::string request = buf_to_string( buf.data(), buf.data() + len);
+              std::string request = std::string{buf.data(), buf.data() + len};
 							Log::debug("buffer:  " + request);
 							Log::debug("bytes_transferred: "+ std::to_string(len));
 							asio::async_write(
