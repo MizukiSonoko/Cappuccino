@@ -30,6 +30,30 @@
 #include <mutex>
 #include <ctime>
 
+#ifdef __has_include
+#  if __has_include(<optional>)
+#    include <optional>
+#    define have_optional 1
+#  elif __has_include(<experimental/optional>)
+#    include <experimental/optional>
+#    define have_optional 1
+#    define experimental_optional
+#  else
+#    define have_optional 0
+#    error "This file requires to use std::experimental::optional (or std::optional). Please update GCC version."
+#  endif
+#endif
+
+#ifdef experimental_optional
+using std::experimental::optional;
+using std::experimental::make_optional;
+using std::experimental::nullopt;
+#else
+using std::optional
+using std::make_optional;
+using std:::nullopt;
+#endif
+
 namespace Cappuccino {
 
 	const int BUF_SIZE   = 4096;
@@ -110,6 +134,12 @@ namespace Cappuccino {
 		static void info(const string& msg){
 			if(LogLevel >= 2){
 				std::cout <<utils::current()<<"[info] "<< msg << std::endl;
+			}
+		}
+
+		static void error(const string& msg){
+			if(LogLevel >= 3){
+				std::cout <<utils::current()<<"[error] "<< msg << std::endl;
 			}
 		}
 
@@ -215,11 +245,15 @@ namespace Cappuccino {
 		}
 
 		if (bind(context.sockfd, (struct sockaddr *) &server, sizeof(server)) < 0) {
-			exit(EXIT_FAILURE);
+				if(errno == EADDRINUSE) {
+					Log::LogLevel = 3;
+					Log::error("port '" + std::to_string(context.port) + "' is already in use.");
+				}
+	  		exit(EXIT_FAILURE);
 		}
 
 		if(listen(context.sockfd,  MAX_LISTEN) < 0) {
-			exit(EXIT_FAILURE);
+	    	exit(EXIT_FAILURE);
 		}
 
     FD_ZERO(&context.mask1fds);
@@ -327,23 +361,23 @@ namespace Cappuccino {
 			paramset[key] = move(value);
 		}
 
-		const string header(const string& key){
+		const optional<string> header(const string& key){
 			if(headerset.find(key) == headerset.end())
-				return "INVALID";
-			return headerset[key];
+				return nullopt;
+			return make_optional(headerset[key]);
 		}
 
-		const string params(const string& key){
+		const optional<string> params(const string& key){
 			if(paramset.find(key) == paramset.end())
-				return "INVALID";
-			return paramset[key];
+				return nullopt;
+			return make_optional(paramset[key]);
 		}
 
-		const nlohmann::json json(){
+		const optional<nlohmann::json> json(){
 			try{
-				return nlohmann::json::parse(*body);
+				return make_optional(nlohmann::json::parse(*body));
 			} catch(std::invalid_argument e){}
-			return  nlohmann::json({});
+			return nullopt;
 		}
 
 		bool isCorrect() {
