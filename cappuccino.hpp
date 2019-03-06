@@ -88,8 +88,7 @@ namespace Cappuccino {
       std::shared_ptr<std::string> static_root;
 
       std::unordered_map<string,
-         std::pair<
-            std::function<Response(std::shared_ptr<Request>)>,
+         std::pair<std::function<Response(std::shared_ptr<Request>)>,
             std::set<Method>>> routes;
    } context;
 
@@ -108,6 +107,12 @@ namespace Cappuccino {
          }
       }
 
+      static void error(const string& msg){
+         if(LogLevel >= 2){
+            std::cout <<utils::current()<<"[error] "<< msg << std::endl;
+         }
+      }
+
    };
 
    namespace signal_utils{
@@ -120,7 +125,7 @@ namespace Cappuccino {
 
       void signal_handler_child(int SignalName){
          while(waitpid(-1,NULL,WNOHANG)>0){}
-      signal(SIGCHLD, signal_utils::signal_handler_child);
+         signal(SIGCHLD, signal_utils::signal_handler_child);
       }
 
       void init_signal(){
@@ -332,13 +337,6 @@ namespace Cappuccino {
          return paramset[key];
       }
 
-      const nlohmann::json json(){
-         try{
-            return nlohmann::json::parse(*body);
-         } catch(std::invalid_argument e){}
-         return  nlohmann::json({});
-      }
-
       bool isCorrect() {
          return correctRequest;
       }
@@ -398,11 +396,6 @@ namespace Cappuccino {
             Log::debug(key+" is already setted.");
          }
          headerset[key] = val;
-      }
-
-      void json(const nlohmann::json& text){
-         body_ = std::make_shared<string>(text.dump());
-         headerset["Content-Type"] = "application/json";
       }
 
       void file(const string& filename){
