@@ -26,8 +26,7 @@
 #include <fstream>
 #include <future>
 #include <set>
-
-#include <mutex>
+#include <memory>
 #include <ctime>
 
 namespace Cappuccino {
