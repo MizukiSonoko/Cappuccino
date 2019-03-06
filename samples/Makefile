@@ -1,7 +1,7 @@
 all: chino
 
 CXX ?= g++
-CFLAG := -stdlib=libc++ -g -std=c++14 $(LIB) -Wall -Wno-unused-parameter -Wno-unused-variable -Wno-unused-function -O3 -lpthread
+CFLAG := -g -std=c++14 $(LIB) -Wall -Wno-unused-parameter -Wno-unused-variable -Wno-unused-function -O3 -lpthread
 INCLUDES := -I../ -I../lib/json/src
 
 chino:
