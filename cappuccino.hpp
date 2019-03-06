@@ -569,12 +569,11 @@ namespace Cappuccino {
       }
 
       while(1){ 
+         usleep(1);
          tv.tv_sec = 0;
          tv.tv_usec = 0;
-         // mask2fds <- mask1fds
          memcpy(&context.mask2fds, &context.mask1fds, sizeof(context.mask1fds));
 
-         // mask2fdsを監視
          int select_result = select(FD_SETSIZE, &context.mask2fds, (fd_set *)0, (fd_set *)0, &tv);
          if(select_result < 1) {
             for(fd = 0; fd < FD_SETSIZE; fd++) {
@@ -588,7 +587,6 @@ namespace Cappuccino {
          }
 
          for(fd = 0; fd < FD_SETSIZE; fd++){
-            // i番目のfdに読み込みデータがある
             if(FD_ISSET(fd,&context.mask2fds)) {
                if(fd == context.sockfd) {
                   memset( &client, 0, sizeof(client));
