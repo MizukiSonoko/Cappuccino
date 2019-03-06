@@ -1,5 +1,5 @@
 # Cappuccino
-### ~ご注文はCappuccinoですか？~
+### \~ご注文はCappuccinoですか？\~
 
 [![Build Status](https://travis-ci.org/MizukiSonoko/Cappuccino.svg?branch=master)](https://travis-ci.org/MizukiSonoko/Cappuccino)
 [![Build Status](https://travis-ci.org/MizukiSonoko/Cappuccino.svg?branch=develop)](https://travis-ci.org/MizukiSonoko/Cappuccino)
